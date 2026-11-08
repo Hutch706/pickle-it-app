@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pickle It</title>
+<meta name="description" content="Keep up with maintenance on the things you own. Your data stays on your device.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2f4f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f140f" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Pickle It">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script src="theme.js"></script>
+<link rel="stylesheet" href="app.css">
+<script src="data.js" defer></script>
+<script src="due.js" defer></script>
+<script src="readings-list.js" defer></script>
+<script src="starters.js" defer></script>
+<script src="assets.js" defer></script>
+<script src="jar-page.js" defer></script>
+<script src="tasks-form.js" defer></script>
+<script src="setup.js" defer></script>
+<script src="setup-home.js" defer></script>
+<script src="onboarding.js" defer></script>
+<script src="pantry.js" defer></script>
+<script src="assets-screen.js" defer></script>
+<script src="assets-edit.js" defer></script>
+<script src="assets-readings.js" defer></script>
+<script src="setup-screen.js" defer></script>
+<script src="jar-screen.js" defer></script>
+<script src="help.js" defer></script>
+<script src="app.js" defer></script>
+</head>
+<body>
+
+<div class="fatal" id="fatal" role="alert" hidden></div>
+
+<svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false"><symbol id="i-car" viewBox="0 0 24 24"><path d="M3 16v-4l2-5h14l2 5v4z"/><circle cx="7.5" cy="17" r="2"/><circle cx="16.5" cy="17" r="2"/><path d="M3 12h18"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></symbol>
+<symbol id="i-house" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></symbol>
+<symbol id="i-apartment" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="1"/><path d="M9.5 7h0M14.5 7h0M9.5 11h0M14.5 11h0M9.5 15h0M14.5 15h0" stroke-width="3"/><path d="M10.5 21v-3h3v3"/></symbol>
+<symbol id="i-land" viewBox="0 0 24 24"><path d="M2 19h20"/><path d="M5 19c0-3 1-5 2-6M7 13c0-1.5-.5-2.5-1.5-3M7 13c1-1 1.5-2 1.5-3.5M17 19c0-2 .7-3.5 1.5-4.5M18.5 14.5c-.2-1.2-.9-2-1.7-2.5M18.5 14.5c.8-.6 1.3-1.4 1.5-2.5"/><path d="M11 19l2-3 2 3"/></symbol>
+<symbol id="i-account" viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h11v3"/><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M16 13.5h2.5"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.5-7 10-7 10z"/></symbol>
+<symbol id="i-dollar" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M16 7.5C16 6 14.2 5 12 5s-4 1-4 2.75S9.8 10.5 12 11s4 1.25 4 3.25S14.2 17 12 17s-4-1-4-2.5"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+<symbol id="i-cabinet" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18M4 12h16"/><path d="M10 7.5h0M14 7.5h0M10 16.5h0M14 16.5h0" stroke-width="3"/></symbol>
+<symbol id="i-engine" viewBox="0 0 24 24"><circle cx="7" cy="17" r="3"/><circle cx="18" cy="18" r="2"/><path d="M4 14h12l3 4"/><path d="M8 14l-2-9h3"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+<symbol id="i-skip" viewBox="0 0 24 24"><path d="M6 5l9 7-9 7z"/><path d="M18 5v14"/></symbol>
+<symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/></symbol>
+<symbol id="i-chevr" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="i-chevd" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 7h12l-3-3M17 17H5l3 3"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17.5v.01"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+<symbol id="i-fuel" viewBox="0 0 24 24"><path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M3 21h14"/><path d="M5 10h10"/><path d="M15 8l3 3v7a1.5 1.5 0 0 0 3 0v-9l-3-3"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 8v6l-4-2v-4z"/></symbol>
+<symbol id="i-sort" viewBox="0 0 24 24"><path d="M7 4v16M4 17l3 3 3-3M17 20V4M14 7l3-3 3 3"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7 9l5-5 5 5"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-jar" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="3" rx="1"/><path d="M6 7h12v12a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z"/><path d="M9 13h6"/></symbol></svg>
+
+<main class="wrap">
+
+  <!-- ================= PANTRY ================= -->
+  <section class="screen" id="screen-pantry" aria-labelledby="pantryTitle" hidden>
+    <header class="phead">
+      <div>
+        <p class="eyebrow">PICKLE IT</p>
+        <h1 id="pantryTitle">Your Pantry</h1>
+        <p class="sub" id="pantryCount"></p>
+      </div>
+      <div class="mwrap" id="menuWrap">
+        <button class="iconbtn" id="menuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menuList">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          <i class="dot" id="backupDot" aria-hidden="true" hidden></i>
+          <span class="vh" id="menuName">Menu</span>
+        </button>
+        <div class="menu" id="menuList" role="menu" aria-label="Menu" hidden></div>
+      </div>
+    </header>
+    <p class="pend" id="sampleNote" role="note" hidden>Sample data for local testing. Nothing here is real.</p>
+    <div id="pantryBody" class="stack"></div>
+  </section>
+
+  <!-- ================= JAR PAGE (Vehicles, Home, Health, Finance; spec 4.21) ================= -->
+  <section class="screen" id="screen-jar" aria-labelledby="jpTitle" hidden>
+    <header class="phead">
+      <div>
+        <p class="eyebrow">PICKLE IT</p>
+        <h1 id="jpTitle" tabindex="-1"></h1>
+        <p class="sub" id="jarSub"></p>
+      </div>
+    </header>
+    <div class="card pempty" id="jarEmpty" hidden></div>
+    <div id="jarMain" class="stack">
+      <div id="jarBoxes" class="stack"></div>
+      <section class="stack" id="jarThings" aria-labelledby="jarThingsH"></section>
+      <div class="stack" id="jarVeh" hidden>
+        <div class="list"><a class="arow" id="jarFill" href="#log"><span class="av"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-fuel"/></svg></span><span class="nm">Fill-Ups and History</span><span class="ch"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevr"/></svg></span><span class="mt">Enter a fill-up, see MPG and service history</span></a></div>
+        <section class="card" id="jarShops" aria-labelledby="jarShopsT"></section>
+      </div>
+      <button class="btn2 add" id="jarAdd" type="button"></button>
+    </div>
+  </section>
+
+  <!-- ================= LOG ================= -->
+  <section class="screen" id="screen-log" aria-labelledby="logTitle">
+    <header>
+      <a class="back" href="#vehicles" aria-label="Back to Vehicles"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Vehicles</a>
+      <p class="eyebrow">PICKLE IT</p>
+      <h1 id="logTitle" tabindex="-1">Fill-Ups and History</h1>
+      <p class="sub">Log each fill-up to track MPG and maintenance. Everything is saved on this device.</p>
+    </header>
+
+    <div class="nudge" id="iosNudge" hidden>
+      <p><strong>Add this app to your Home Screen.</strong> Safari can clear data for websites you don't open often. Apps on the Home Screen keep theirs.</p>
+      <div class="nudge-acts"><a class="mbtn" href="#settings" data-open="install-ios" data-settings-tab="app">Show me how</a><button class="mbtn quiet" type="button" id="iosNudgeLater">Not now</button></div>
+    </div>
+
+    <div class="nudge" id="backupNudge" hidden>
+      <p id="backupNudgeText"></p>
+      <div class="nudge-acts"><button class="mbtn" type="button" id="nudgeExport">Export backup</button><button class="mbtn quiet" type="button" id="nudgeLater">Remind me later</button></div>
+    </div>
+
+    <button class="mbanner" id="mBanner" type="button" hidden aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>
+      <strong>Maintenance coming up</strong>
+      <span class="chev">Details ›</span>
+      <span class="mb-sub" id="mBannerSub"></span>
+    </button>
+
+    <div class="card empty-card" id="noVehicles" hidden>
+      <h2 class="h2-plain">Add a vehicle to get started</h2>
+      <p>Fill-ups and maintenance are tracked per vehicle.</p>
+      <button class="save" id="logAddVehicle" type="button">Add a Vehicle</button>
+    </div>
+
+    <div id="logMain" class="stack">
+      <div class="bigbtns">
+        <button class="bigbtn" id="addFillBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M3 21h13"/><path d="M7 7h5v3.5H7z"/><path d="M15 10h1.5a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 0 3 0V9l-3-3.5"/></svg>
+          <span>Add fill-up</span>
+        </button>
+        <button class="bigbtn" id="addMaintBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>
+          <span>Log maintenance</span>
+        </button>
+      </div>
+
+      <div class="status" id="status" role="status" aria-live="polite" tabindex="-1"></div>
+
+      <div id="entry" class="entry" hidden>
+        <div class="tabs" role="tablist" aria-label="What to log">
+          <button class="tab" role="tab" id="tabFill" aria-selected="true" aria-controls="panelFill" type="button">Fill-up</button>
+          <button class="tab" role="tab" id="tabMaint" aria-selected="false" aria-controls="panelMaint" type="button">Maintenance</button>
+        </div>
+
+        <div id="panelFill" role="tabpanel" aria-labelledby="tabFill">
+          <form class="card" id="form" novalidate>
+            <label for="eVehicle">Vehicle<select id="eVehicle"></select></label>
+            <div class="display" aria-label="Pump readout">
+              <span>Price</span><span id="dPrice">—</span>
+              <span>Gallons</span><span id="dGal">—</span>
+              <span>Sale</span><span id="dCost">—</span>
+            </div>
+            <div class="grid2">
+              <label for="date">Date<input id="date" type="date" required></label>
+              <label for="station">Gas station<input id="station" type="text" list="stationList" autocomplete="off" placeholder="Optional"></label>
+            </div>
+            <datalist id="stationList"></datalist>
+            <label for="odometer">Odometer<input id="odometer" type="number" inputmode="numeric" min="0" step="1" required></label>
+            <div class="grid2">
+              <label for="ppg">$/gallon<input id="ppg" type="number" inputmode="decimal" min="0" step="0.001" required></label>
+              <label for="units">Gallons<input id="units" type="number" inputmode="decimal" min="0" step="0.001" required></label>
+            </div>
+            <label for="rtotal">Receipt total<input id="rtotal" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Optional, to double-check"></label>
+            <div class="check" id="check"></div>
+            <div class="status" id="fStatus" role="status"></div>
+            <button class="save" id="saveBtn" type="submit">Save fill-up</button>
+            <button class="link" id="cancelBtn" type="button">Discard</button>
+          </form>
+        </div>
+
+        <div id="panelMaint" role="tabpanel" aria-labelledby="tabMaint" inert>
+          <form class="card" id="mForm" novalidate>
+            <label for="mVehicle">Vehicle<select id="mVehicle"></select></label>
+            <div class="grid2">
+              <label for="mDate">Date<input id="mDate" type="date" required></label>
+              <label for="mOdo">Odometer<input id="mOdo" type="number" inputmode="numeric" min="0" step="1" required></label>
+            </div>
+            <label for="mShop">Shop<select id="mShop"></select></label>
+            <div class="msel-wrap">
+              <span class="msel-lab">Tasks</span>
+              <details class="msel" id="mItems"><summary id="mItemsSum">Select tasks</summary><div class="msel-list" id="mItemsList"></div></details>
+            </div>
+            <label for="mOther">Other repairs<textarea id="mOther" rows="3" placeholder="e.g. Replaced front brake pads"></textarea></label>
+            <div class="status" id="mStatus" role="status"></div>
+            <button class="save" id="mSave" type="submit">Save maintenance</button>
+            <button class="link" id="mCancel" type="button">Discard</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="histbar">
+        <select id="vehicle" aria-label="Vehicle to show history for"></select>
+        <label class="chk" for="showInactive" id="showInactiveWrap"><input type="checkbox" id="showInactive"> Show inactive vehicles</label>
+      </div>
+
+      <section class="card mpg" aria-labelledby="mpgTitle">
+        <h2 id="mpgTitle">MPG</h2>
+        <div class="alert" id="mpgWarn" hidden></div>
+        <div class="stats">
+          <div class="stat main"><span class="k">Lifetime</span><span class="v" id="sLife">—</span><span class="u" id="sLifeU"></span></div>
+          <div class="stat"><span class="k">Last 2 mo</span><span class="v" id="s2mo">—</span></div>
+          <div class="stat"><span class="k">Last fill-up</span><span class="v" id="sLast">—</span></div>
+        </div>
+        <div class="chart" id="chart"></div>
+        <div class="legend" id="legend" hidden><span><i></i>Fill-up MPG</span><span><i class="run"></i>2-month running MPG</span></div>
+        <p class="foot" id="mpgNote"></p>
+      </section>
+
+      <section class="sec" id="maintSec" hidden>
+        <div class="sechead"><h2 id="maintTitle">Maintenance</h2><button class="hidebtn" type="button" data-target="maintBody">Hide</button></div>
+        <div id="maintBody" class="stack-sm">
+          <div id="maintBox"></div>
+          <p class="foot">Starts from a standard list of tasks; edit the tasks and Every amounts in Settings, under Assets. Until you log a service, the app assumes it was done at the last regular interval. Tap “Mark done” after a service to restart that task's countdown.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sechead"><h2>Lifetime MPG by vehicle</h2><button class="hidebtn" type="button" data-target="allVeh">Hide</button></div>
+        <div class="list" id="allVeh"></div>
+      </section>
+
+      <section class="sec">
+        <div class="sechead"><h2>Recent fill-ups</h2><button class="hidebtn" type="button" data-target="recentBody">Hide</button></div>
+        <div id="recentBody" class="stack-sm">
+          <div class="list" id="list"></div>
+          <p class="foot">“Mark fill-up(s) missed” tells the app you didn't log every fill-up before this one, so that stretch is left out of the MPG.</p>
+        </div>
+      </section>
+
+      <section class="sec">
+        <div class="sechead"><h2>Service history</h2><button class="hidebtn" type="button" data-target="svcList">Hide</button></div>
+        <div class="list" id="svcList"></div>
+      </section>
+    </div>
+  </section>
+
+  <!-- ================= SETTINGS ================= -->
+  <section class="screen" id="screen-settings" aria-labelledby="setTitle" hidden>
+    <header id="setHead">
+      <a class="back" href="#pantry"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Back to the Pantry</a>
+      <h1 id="setTitle">Settings</h1>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Settings sections" id="setTabs">
+      <button class="tab" role="tab" type="button" id="tabAssets" aria-selected="true" aria-controls="panelAssets" tabindex="0">Assets</button>
+      <button class="tab" role="tab" type="button" id="tabApp" aria-selected="false" aria-controls="panelApp" tabindex="-1">App Settings</button>
+    </div>
+
+    <div role="tabpanel" id="panelAssets" aria-labelledby="tabAssets" tabindex="0" class="stack">
+      <!-- Assets (S2, spec 4.17, mockup settings-option-c.html CF1-CF13). Filled by assets-screen.js. -->
+      <div id="asMain" class="stack">
+        <div class="statusrow"><p class="hint" id="asStatus" role="status"></p><button class="btn2 small" type="button" id="asAdd" aria-haspopup="dialog" aria-label="Add a thing"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>Add</button></div>
+        <div class="tabs" role="radiogroup" aria-label="View" id="asView">
+          <button class="tab" type="button" role="radio" data-view="things" aria-checked="true">Things</button>
+          <button class="tab" type="button" role="radio" data-view="tasks" aria-checked="false" tabindex="-1">All Tasks</button>
+        </div>
+        <div class="stack" id="asTools">
+          <div class="search">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
+            <label class="vh" for="asSearch">Search assets and tasks</label>
+            <input id="asSearch" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" placeholder="Search">
+          </div>
+          <div class="tools">
+            <button class="tool" type="button" id="asFilterBtn" aria-haspopup="dialog"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-filter"/></svg><span><b>Filter</b><small><span class="vh">: </span><span id="asFilterVal">None</span></small></span></button>
+            <button class="tool" type="button" id="asSortBtn" aria-haspopup="dialog"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sort"/></svg><span><b>Sort</b><small><span class="vh">: </span><span id="asSortVal">Jar</span></small></span></button>
+          </div>
+          <div class="fchips" role="group" aria-label="Show assets from" id="asChips"></div>
+        </div>
+        <div class="stack" id="asBody"></div>
+      </div>
+      <div class="alert bad" role="alert" id="asErr" hidden>
+        <strong>Couldn't load your tasks.</strong>
+        Nothing was deleted; your data is still on this device. Try again. If it keeps happening, close and reopen Pickle It.
+      </div>
+      <button class="save" type="button" id="asRetry" hidden>Try Again</button>
+      <div class="stack" id="asDetail" hidden></div>
+    </div>
+
+    <div role="tabpanel" id="panelApp" aria-labelledby="tabApp" tabindex="0" class="stack" hidden>
+      <section class="card" aria-labelledby="optTitle">
+        <h2 id="optTitle">Appearance</h2>
+        <div class="sec">
+          <span class="optlabel" id="modeLabel">Theme</span>
+          <div class="tabs three" role="radiogroup" aria-labelledby="modeLabel" id="modePick">
+            <button class="tab" type="button" role="radio" data-mode="light" aria-checked="false" tabindex="-1">Light</button>
+            <button class="tab" type="button" role="radio" data-mode="dark" aria-checked="false" tabindex="-1">Dark</button>
+            <button class="tab" type="button" role="radio" data-mode="system" aria-checked="true" tabindex="0">System</button>
+          </div>
+        </div>
+        <div class="sec">
+          <span class="optlabel" id="palLabel">Color palette</span>
+          <div class="swatches" role="radiogroup" aria-labelledby="palLabel" id="palettePick"></div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="jarTitle" id="jarCard">
+        <h2 id="jarTitle">Jars on the Tab Bar</h2>
+        <div id="jarSwitches"></div>
+        <p class="hint">Hidden jars keep their data. Their tasks leave the Pantry until you show them again.</p>
+        <div class="status" id="jarStatus" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="card" aria-labelledby="expTitle">
+        <h2 id="expTitle">Backup</h2>
+        <p class="lastexp" id="lastExp"></p>
+        <div class="alert soft" id="expReminder" hidden></div>
+        <p class="hint" id="expCounts"></p>
+        <p class="alert" id="expWarn" role="note">This file isn't encrypted. It includes everything you've saved, including Health and Finance tasks and notes. Keep it somewhere private.</p>
+        <button class="save" id="exportBtn" type="button">Export Backup (CSV)</button>
+        <p class="hint" id="expHow"></p>
+        <div class="status" id="expStatus" role="status" aria-live="polite"></div>
+        <hr class="sep">
+        <h3 class="h4" id="impTitle">Import a Backup</h3>
+        <p class="hint">Moving to another phone or computer? Export on the old device, send the file to the new one, then import it here. You'll see a preview, then choose Merge or Replace.</p>
+        <label class="filebtn">
+          <span>Choose CSV file</span>
+          <input id="importFile" type="file" accept=".csv,text/csv,text/comma-separated-values,application/vnd.ms-excel,text/plain">
+        </label>
+        <div id="impPreview" class="stack-sm" hidden></div>
+        <div class="status" id="impStatus" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="card" aria-labelledby="stoTitle">
+        <h2 id="stoTitle">Storage on This Device</h2>
+        <p id="storageText" class="hint"></p>
+      </section>
+
+      <section class="card" aria-labelledby="instTitle" id="installCard">
+        <h2 id="instTitle">Install as an App</h2>
+      <p class="hint" id="installLead">Installing gives it its own icon, opens it full screen and lets it work offline.</p>
+      <button class="save" id="installBtn" type="button" hidden>Install app</button>
+      <details class="how" id="install-ios">
+        <summary>iPhone and iPad</summary>
+        <ol>
+          <li>Open this page in <strong>Safari</strong>.</li>
+          <li>Tap <strong>Share</strong> (the square with an arrow). On iOS 26, tap <strong>•••</strong> first, then <strong>Share</strong>.</li>
+          <li>Scroll down and tap <strong>Add to Home Screen</strong>. Leave <strong>Open as Web App</strong> on, then tap <strong>Add</strong>.</li>
+          <li>From now on, open it from the Home Screen icon. That copy keeps its own data, separate from Safari tabs, and Safari can clear data for websites you don't open often.</li>
+        </ol>
+      </details>
+      <details class="how" id="install-android">
+        <summary>Android</summary>
+        <ol>
+          <li>Open this page in <strong>Chrome</strong>.</li>
+          <li>Tap the <strong>⋮</strong> menu, then <strong>Add to Home screen</strong> and choose <strong>Install</strong>.</li>
+          <li>Open it from the new icon.</li>
+        </ol>
+      </details>
+      <details class="how" id="install-windows">
+        <summary>Windows</summary>
+        <ol>
+          <li>Open this page in <strong>Edge</strong> or <strong>Chrome</strong>.</li>
+          <li>Click the <strong>install icon</strong> at the right end of the address bar. If it isn't there: Edge <strong>⋯</strong> menu → <strong>Apps</strong> → <strong>Install this site as an app</strong>; Chrome <strong>⋮</strong> menu → <strong>Cast, save and share</strong> → <strong>Install page as app</strong>.</li>
+          <li>It appears in the Start menu and can be pinned to the taskbar.</li>
+        </ol>
+      </details>
+      <details class="how" id="install-mac">
+        <summary>Mac</summary>
+        <ol>
+          <li>In <strong>Safari</strong> (macOS Sonoma or later): <strong>File</strong> → <strong>Add to Dock</strong>. Use the Dock app from then on; it keeps its own data, separate from Safari.</li>
+          <li>Or in <strong>Chrome</strong>: click the install icon at the right end of the address bar.</li>
+        </ol>
+      </details>
+    </section>
+
+    <section class="card" aria-labelledby="helpTitle">
+      <h2 id="helpTitle">Help</h2>
+      <div id="helpBody"></div>
+    </section>
+
+    <section class="card" aria-labelledby="aboutTitle">
+      <h2 id="aboutTitle">About</h2>
+      <p>Pickle It version <span id="appVersion"></span></p>
+      <p class="hint">Privacy policy: coming soon</p>
+    </section>
+
+    <section class="card" aria-labelledby="delTitle">
+      <h2 id="delTitle">Start Over</h2>
+      <p class="hint">Deletes every thing, task, fill-up, reading and done-history entry Pickle It has saved on this device, and resets theme and palette. This can't be undone, so export a backup first.</p>
+      <p class="hint">Clearing your browser's site data, or removing the app from your home screen, also deletes everything Pickle It saved. Backup files you exported stay where you saved them.</p>
+      <button class="btn2 danger" id="delBtn" type="button">Delete All Data…</button>
+    </section>
+    </div>
+  </section>
+</main>
+
+<nav class="tb" id="bottomBar" aria-label="Pantry and jars">
+  <div class="tb-in">
+    <a class="pan" href="#pantry" data-screen="pantry"><span class="pansq"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-cabinet"/></svg></span><span>Pantry</span></a>
+    <span class="div" aria-hidden="true"></span>
+    <a href="#vehicles" data-screen="vehicles"><svg class="jar" viewBox="0 0 32 32" aria-hidden="true"><rect class="lid" x="9" y="3" width="14" height="4" rx="1"/><path class="body" d="M8 9h16v16a4 4 0 0 1-4 4h-8a4 4 0 0 1-4-4z"/><use class="in" href="#i-car" x="10" y="12" width="12" height="12" stroke-width="3"/></svg><span>Vehicles</span><i class="dot" aria-hidden="true" hidden></i></a>
+    <a href="#home" data-screen="home"><svg class="jar" viewBox="0 0 32 32" aria-hidden="true"><rect class="lid" x="9" y="3" width="14" height="4" rx="1"/><path class="body" d="M8 9h16v16a4 4 0 0 1-4 4h-8a4 4 0 0 1-4-4z"/><use class="in" href="#i-home" x="10" y="12" width="12" height="12" stroke-width="3"/></svg><span>Home</span><i class="dot" aria-hidden="true" hidden></i></a>
+    <a href="#health" data-screen="health"><svg class="jar" viewBox="0 0 32 32" aria-hidden="true"><rect class="lid" x="9" y="3" width="14" height="4" rx="1"/><path class="body" d="M8 9h16v16a4 4 0 0 1-4 4h-8a4 4 0 0 1-4-4z"/><use class="in" href="#i-heart" x="10" y="12" width="12" height="12" stroke-width="3"/></svg><span>Health</span><i class="dot" aria-hidden="true" hidden></i></a>
+    <a href="#finance" data-screen="finance"><svg class="jar" viewBox="0 0 32 32" aria-hidden="true"><rect class="lid" x="9" y="3" width="14" height="4" rx="1"/><path class="body" d="M8 9h16v16a4 4 0 0 1-4 4h-8a4 4 0 0 1-4-4z"/><use class="in" href="#i-dollar" x="10" y="12" width="12" height="12" stroke-width="3"/></svg><span>Finance</span><i class="dot" aria-hidden="true" hidden></i></a>
+  </div>
+</nav>
+
+<!-- Maintenance due -->
+<dialog class="mdlg" id="mDialog" aria-labelledby="mDlgTitle">
+  <div class="mdlg-in">
+    <div class="mdlg-head">
+      <h3 id="mDlgTitle">Maintenance coming up</h3>
+      <button class="xbtn" id="mClose" type="button" aria-label="Close">×</button>
+    </div>
+    <p class="sub">Going by each vehicle's latest logged odometer.</p>
+    <div id="mDlgBody" class="stack-sm"></div>
+    <button class="save" id="mOk" type="button">Got it</button>
+  </div>
+</dialog>
+
+<!-- Done (Pantry): date, plus the odometer or hours when the task needs one -->
+<dialog class="mdlg sheet" id="dnDialog" aria-labelledby="dnTitle dnSub">
+  <form class="mdlg-in" id="dnForm" novalidate>
+    <div>
+      <h3 id="dnTitle"></h3>
+      <p class="sub" id="dnSub"></p>
+    </div>
+    <label for="dnDate">Date<input id="dnDate" type="date" data-status="dnStatus"></label>
+    <label for="dnRead" id="dnReadWrap" hidden><span id="dnReadLabel">Odometer</span><input id="dnRead" type="number" min="0" aria-describedby="dnHint" data-status="dnStatus"></label>
+    <p class="hint" id="dnHint" hidden></p>
+    <div class="status" id="dnStatus" role="status"></div>
+    <div class="dlg-btns">
+      <button class="save" id="dnSave" type="submit">Save</button>
+      <button class="btn2" id="dnCancel" type="button">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Add Reading (Pantry row) and Log Hours (Menu): one reading of a thing's odometer or hours -->
+<dialog class="mdlg sheet" id="arDialog" aria-labelledby="arTitle arSub">
+  <form class="mdlg-in" id="arForm" novalidate>
+    <div>
+      <h3 id="arTitle"></h3>
+      <p class="sub" id="arSub"></p>
+    </div>
+    <label for="arWho" id="arWhoWrap" hidden>Which one?<select id="arWho" data-status="arStatus"></select></label>
+    <p class="hint" id="arShared" hidden></p>
+    <label for="arDate">Date<input id="arDate" type="date" data-status="arStatus"></label>
+    <label for="arRead"><span id="arReadLabel">Odometer (miles)</span><input id="arRead" type="number" min="0" aria-describedby="arHint" data-status="arStatus"></label>
+    <p class="hint" id="arHint"></p>
+    <div class="status" id="arStatus" role="status"></div>
+    <div class="dlg-btns">
+      <button class="save" id="arSave" type="submit">Save</button>
+      <button class="btn2" id="arCancel" type="button">Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Meter-change prompt (B9.5), shown on top of the Done or Add Reading sheet. Neither button is the default. -->
+<dialog class="mdlg small" id="mcDialog" role="alertdialog" aria-labelledby="mcTitle" aria-describedby="mcBody">
+  <form class="mdlg-in" method="dialog" id="mcForm">
+    <h3 id="mcTitle" tabindex="-1">Did you type that right?</h3>
+    <div id="mcBody"><p id="mcLast"></p><p id="mcTyped"></p></div>
+    <div class="mc-btns">
+      <button class="save mcb" value="yes" type="submit"><b>Yes, I entered it correctly</b><small>Older readings are adjusted so due dates stay right.</small></button>
+      <button class="btn2 mcb" value="no" id="mcNo" type="submit"><b>No, I typed it wrong</b><small>Go back and fix the number.</small></button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirm / ask -->
+<dialog class="mdlg small" id="cDialog" aria-labelledby="cTitle" aria-describedby="cBody">
+  <form class="mdlg-in" method="dialog" id="cForm">
+    <h3 id="cTitle"></h3>
+    <div id="cBody"></div>
+    <label id="cInputWrap" hidden><span id="cInputLabel"></span><input id="cInput" type="text" autocomplete="off"></label>
+    <p class="hint" id="cHint" hidden></p>
+    <div class="status" id="cStatus" role="status"></div>
+    <div class="dlg-btns">
+      <button class="btn2" value="cancel" id="cCancel" type="submit" formnovalidate>Cancel</button>
+      <button class="save" value="ok" id="cOk" type="submit">OK</button>
+      <button class="btn2" value="alt" id="cAlt" type="submit" formnovalidate hidden></button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Delete All Data (spec 4.10 AC 12): two steps in one dialog. Step 1 says what goes and offers an export; step 2 asks for the word DELETE. -->
+<dialog class="mdlg small" id="delDialog" aria-labelledby="delDlgTitle">
+  <div class="mdlg-in">
+    <ol class="dsteps" aria-hidden="true"><li class="on"></li><li id="delBar2"></li></ol>
+    <div id="delStep1" class="stack-sm">
+      <h3 id="delDlgTitle" tabindex="-1">Delete All Pickle It Data?</h3>
+      <p>This removes everything Pickle It has saved on this device:</p>
+      <ul class="dlist" id="delList"></ul>
+      <p>This can't be undone. Pickle It can't get this back.</p>
+      <p>Backup files you saved or shared earlier aren't deleted.</p>
+      <p class="alert" id="delBackup" role="note"></p>
+      <p class="alert" role="note">This file isn't encrypted. It includes everything you've saved, including Health and Finance tasks and notes. Keep it somewhere private.</p>
+      <div class="status" id="delExpStatus" role="status" aria-live="polite"></div>
+      <div class="dlg-btns">
+        <button class="save" id="delExport" type="button">Export a Backup First</button>
+        <button class="btn2 danger" id="delContinue" type="button">Continue</button>
+        <button class="btn2" id="delCancel1" type="button">Cancel</button>
+      </div>
+    </div>
+    <div id="delStep2" class="stack-sm" hidden>
+      <h3 id="delDlgTitle2" tabindex="-1">Are You Sure? This Can't Be Undone.</h3>
+      <p>Type <b class="mono">DELETE</b> to confirm.</p>
+      <label for="delWord">Confirmation word<input id="delWord" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="delWordHint"></label>
+      <p class="hint" id="delWordHint">The button turns on when the word matches. Upper or lower case both work.</p>
+      <div class="status" id="delStatus" role="status" aria-live="polite"></div>
+      <div class="dlg-btns">
+        <button class="save danger" id="delGo" type="button" disabled>Delete Everything</button>
+        <button class="btn2" id="delCancel2" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<!-- Assets: Filter and Sort sheets (spec 4.17 AC 3 and 6) -->
+<dialog class="mdlg sheet" id="asFilterDlg" aria-modal="true" aria-labelledby="asFilterTitle">
+  <div class="mdlg-in">
+    <div class="mdlg-head"><h3 id="asFilterTitle">Filter</h3><button class="xclose" type="button" id="asFilterX" aria-label="Close without changing"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <fieldset class="fset"><legend>View</legend>
+      <div class="tabs" role="radiogroup" id="asFView">
+        <button class="tab" type="button" role="radio" data-view="things" aria-checked="true">Things</button>
+        <button class="tab" type="button" role="radio" data-view="tasks" aria-checked="false" tabindex="-1">All Tasks</button>
+      </div>
+      <p class="hint" id="asFViewHint"></p>
+    </fieldset>
+    <fieldset class="fset"><legend>Jar</legend><div class="fchips" id="asFJars"></div></fieldset>
+    <fieldset class="fset"><legend>Status</legend><div class="fchips" id="asFStatus"></div>
+      <p class="hint">Due Soon means due today through 27 days from today. Pick none to see everything.</p></fieldset>
+    <div class="dlg-btns">
+      <button class="save" type="button" id="asFApply">Show</button>
+      <button class="btn2" type="button" id="asFClear" aria-describedby="asFClearWhy">Clear Filters</button>
+    </div>
+    <span class="vh" id="asFClearWhy"></span>
+  </div>
+</dialog>
+<dialog class="mdlg sheet" id="asSortDlg" aria-modal="true" aria-labelledby="asSortTitle">
+  <div class="mdlg-in">
+    <div class="mdlg-head"><h3 id="asSortTitle">Sort By</h3><button class="xclose" type="button" id="asSortX" aria-label="Close without changing"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <div role="radiogroup" aria-labelledby="asSortTitle" class="stack-sm" id="asSortOpts"></div>
+    <p class="hint">Tapping one sorts the list and closes this. Jar gives each jar a heading. Every other sort is one list, with the jar shown on each row.</p>
+  </div>
+</dialog>
+
+<!-- Add flow (S4b-1): a full-screen dialog; setup-screen.js draws its pages -->
+<dialog class="setup" id="setupDlg" aria-labelledby="suTitle">
+  <div class="su-toast" id="suToast" hidden><p role="status"></p><button type="button">Undo</button></div>
+  <p class="vh" id="suLive" role="status"></p>
+  <div class="su-in" id="suIn"></div>
+</dialog>
+<!-- Home setup quantity sheet (S4b-2, spec 4.15 AC 5; mockup home-setup-quantity.html Q2-Q5): setup-screen.js fills it. Escape or the close button discards. -->
+<dialog class="mdlg sheet qty" id="qtyDlg" aria-labelledby="qtyTitle"><div class="mdlg-in" id="qtyIn"></div></dialog>
+
+</body>
+</html>
