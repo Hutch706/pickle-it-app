@@ -133,7 +133,6 @@ function route() {
   if (jar && arrived) resetJarPage(jar);
   for (const n of SCREENS) $("screen-" + n).hidden = n !== s;
   const cur = s === "log" ? "vehicles" : s === "settings" ? "" : s === "jar" ? jar : s;
-  $("bottomBar").hidden = s === "settings"; // the bar is hidden on Settings (spec 4.1 AC 1)
   for (const a of document.querySelectorAll("#bottomBar a")) {
     if (a.dataset.screen === cur) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
   }

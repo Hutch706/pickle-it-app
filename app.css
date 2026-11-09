@@ -217,7 +217,10 @@ select, input[type="text"], input[type="number"], input[type="date"], textarea {
   font: inherit; font-size: 17px; color: var(--ink); background: var(--surface);
   border: 1px solid var(--line-strong); border-radius: 8px; padding: 10px 12px; width: 100%; min-width: 0;
 }
-input[type="date"] { min-height: 46px; }
+/* iOS Safari draws a date input with its own box (taller, wider inner value) and ignores font-size/height unless the native look is removed; match the 46px fields beside it. */
+input[type="date"] { -webkit-appearance: none; appearance: none; display: block; box-sizing: border-box; height: 46px; min-height: 46px; line-height: 1.2; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; min-height: 1.2em; margin: 0; }
+.tform input[type="number"], .su-in input[type="number"] { min-height: 46px; box-sizing: border-box; }
 textarea { resize: vertical; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 input[aria-invalid="true"] { border-color: var(--err); }

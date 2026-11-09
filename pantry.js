@@ -452,6 +452,7 @@ function redrawKeeping(body, draw) {
 
 function renderPantry() {
   const ctx = pantryContext(), body = $("pantryBody");
+  $("pantryHead").append($("menuWrap")); // the one Menu lives in the header of whichever of the Pantry or a jar page is showing
   $("sampleNote").hidden = !ctx.dev;
   $("pantryCount").textContent = ctx.empty ? "Nothing on the shelves yet"
     : ctx.attn === 0 ? "Nothing needs attention this week" : ctx.attn === 1 ? "1 task needs attention this week" : `${ctx.attn} tasks need attention this week`;

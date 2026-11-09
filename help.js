@@ -7,7 +7,7 @@ const HELP_SECTIONS = [
     "A jar is one area of your life: Vehicles, Home, Health or Finance. Tap a jar on the bottom bar to see just its tasks. A red dot means something in that jar needs attention."]],
   ["How do I add a thing?", [
     "A thing is whatever you keep up: a car, a house, a mower, a person, a household. On a new Pantry, tap A Vehicle, A Home, A Person or A Household. Later, open Menu, then Settings, then Assets, and tap Add.",
-    "Setup walks you through one page at a time and offers starter tasks. Check the ones you want. Anything you leave unchecked is still created, switched off, so you can turn it on later in Assets."]],
+    "Setup walks you through one page at a time and offers starter tasks. Check the ones you want. Anything you leave unchecked is not added; you can add it later in Assets."]],
   ["What do Done and Skip do?", [
     "When a task is due, tap Done if you did it, or Skip if you're passing on it this time. Either one is saved to the Log, and the task's next due date moves along. Made a mistake? Tap Undo in the message that pops up. It stays for a few seconds.",
     "On a vehicle, Done asks for the odometer, so your readings stay up to date. Skip on a meter task keeps a copy of the current reading."]],
