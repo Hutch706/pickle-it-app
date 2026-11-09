@@ -54,6 +54,7 @@ function jarMore(id, f) { // "Show N More" on a box: the next rows appear in pla
 function renderJar() {
   if ($("screen-jar").hidden || !jp.jar) return;
   const jar = jp.jar;
+  $("jarHead").append($("menuWrap")); renderMenu(pantryContext()); // the Menu (Enter Fill-Up, Log Hours, Settings) is on every jar page too
   if (S.hiddenJars.includes(jar)) { focusHeading = true; history.replaceState(null, "", "#pantry"); route(); liveSay(`${JarPage.NAME[jar]} was hidden, so you're back at the Pantry.`); return; } // the jar was hidden while its page was open (another tab): say so, focus on the Pantry heading (QA R2 finding 6)
   $("jpTitle").textContent = JarPage.NAME[jar];
   const empty = !S.things.some((t) => t.jar === jar);

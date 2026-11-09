@@ -99,7 +99,7 @@
     const parts = [], hr = r.kind === "hours", m = hr ? TF.parseNumber(r.everyHours, { min: 0.1, max: 99999.9 }).value : TF.parseNumber(r.everyMiles, { whole: true, min: 1, max: 999999 }).value, mo = TF.parseNumber(r.months, { whole: true, min: 1, max: 999 }).value;
     if (r.kind === "date") parts.push(r.orig && r.orig.hasMonthDay ? `Each year · ${monthDay(r.orig.monthDay)}` : "Each year · asks for the date");
     else parts.push("Every " + ([m != null && `${num(m)} ${hr ? "hr" : "mi"}`, mo != null && span(mo, r.unit, m != null)].filter(Boolean).join(" or ") || "?"));
-    if (!r.checked) parts.push(r.custom ? "Won't be added" : "Starts paused");
+    if (!r.checked) parts.push("Won't be added");
     else if (r.kind === "date") { if (iso(clean(r.nextDate))) parts.push(`Next ${dayText(clean(r.nextDate))}`); }
     else parts.push(!r.notSure && iso(clean(r.lastDate)) ? `Last completed: ${dayText(clean(r.lastDate))}` : "Last completed: not sure");
     return parts.join(" · ");
@@ -130,10 +130,10 @@
     if (d.hourMeter) { const h = TF.parseNumber(d.hours, HOURS_OPT); if (h.error) e.hours = h.error; }
     return e;
   }
-  // Page 3. { rowKey: { field: message } }. Only ticked rows are checked (an unticked starter row is created switched off, as the library has it).
+  // Page 3. { rowKey: { field: message } }. Only ticked rows are checked (an unticked row is not created).
   function checkRows(d, ctx) {
     const out = {}, today = ctx.today;
-    const created = d.rows.filter((x) => !x.custom || (x.checked && clean(x.name))); // a switched-off starter is still created, so its name counts
+    const created = d.rows.filter((x) => x.checked && (!x.custom || clean(x.name))); // an unticked row is not created, so its name does not count
     const count = (nm) => created.filter((x) => key(x.checked || x.custom ? x.name : x.orig.name) === nm).length;
     const bad = (r, f, m) => { (out[r.key] = out[r.key] || {})[f] = m; };
     for (const r of d.rows.filter((x) => x.checked && (!x.custom || clean(x.name)))) { // a custom row with no name is not created (4.13 AC 3)

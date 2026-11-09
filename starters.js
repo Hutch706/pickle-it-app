@@ -170,13 +170,18 @@
   // thing has an hour meter (default: mowers and generators do, 3.4a); without one the hours half is dropped and the time-only version is used.
   function starterList(jar, kind, types, opts = {}) {
     const hasMeter = opts.hourMeter ?? D.hasHourMeter({ jar, kind, tasks: [] });
+    // Most frequent first (owner, 2026-11-08): a task's key is its first measure in the order miles, hours, time, so each measure is its own group
+    // in that order and tasks sort by their Every within it (time counted in months); a task with no interval goes last; ties keep library order.
+    // shortcut: no conversion between miles, hours and months, the owner leaves that to v2.
+    const MONTHS = { day: 1 / 30, week: 7 / 30, month: 1, year: 12 };
+    const key = (o) => (o.miles ? [0, o.miles.every] : o.hours ? [1, o.hours.every] : o.time ? [2, o.time.n * MONTHS[o.time.unit]] : [3, 0]);
     return LIBRARY.filter((t) => t.on === onOf(jar, kind) && matches(t, types)).map((t) => {
       const keepHours = t.hours && hasMeter;
       const out = { id: t.id, name: t.name, default: t.default, miles: t.miles ? clone(t.miles) : null, hours: keepHours ? clone(t.hours) : null,
         time: clone((t.hours && !hasMeter && t.timeOnly) || t.time || null), active: true };
       if (t.notSure) out.notSure = t.notSure;
       return out;
-    });
+    }).sort((a, b) => { const x = key(a), y = key(b); return x[0] - y[0] || x[1] - y[1]; });
   }
 
   // First occurrence of "MM-DD" after `from` (strictly, or on it when inclusive).
@@ -193,12 +198,12 @@
   }
 
   // Task specs ready for makeThing / makeTask. opts: today (ISO date, required), picked (library numbers switched on; default = the tasks whose
-  // default is true; the rest are still created, with active:false), rows ({ number: { lastDate, startDate, hasLog } }), edits (see below), hourMeter. Logs are not made here.
+  // default is true; any other is not created at all, owner ruling 2026-11-08), rows ({ number: { lastDate, startDate, hasLog } }), edits (see below), hourMeter. Logs are not made here.
   function instantiate(jar, kind, types, opts = {}) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.today || "")) throw new Error("instantiate needs today as YYYY-MM-DD");
     const picked = opts.picked && new Set(opts.picked.map(String)), rows = opts.rows || {};
-    // Every task on the list is created; one that is not picked (or, with no picked list, not default) is switched off, so it can be turned on later in Assets.
-    return starterList(jar, kind, types, opts).map((t0) => {
+    // A task that is not picked (or, with no picked list, not default) is not created. A picked one with no date and "not sure: pause" is created paused.
+    return starterList(jar, kind, types, opts).filter((t) => (picked ? picked.has(t.id) : t.default)).map((t0) => {
       const row = rows[t0.id] || {}, ed = (opts.edits || {})[t0.id] || {};
       // edits (setup rows, S4b-1/2): { number: { name, milesEvery, hoursEvery, milesRemind, hoursRemind, n, unit, noTime } } (n and unit also add a count-from-done time rule to a miles task) change what the thing's own copy says before the start date is worked out.
       // A Remind the person typed (milesRemind, hoursRemind) wins; otherwise the library's, capped at a changed Every.
@@ -209,7 +214,7 @@
       const time = t.time && { n: t.time.n, unit: t.time.unit, from: t.time.from, startDate: startFor(t.time, row, opts.today),
         activeFrom: t.time.activeFrom ?? null, activeTo: t.time.activeTo ?? null };
       const paused = t.notSure === "pause" && !row.lastDate && !row.startDate && !row.hasLog;
-      return { id: t.id, name: t.name, miles: t.miles, hours: t.hours, time, active: !paused && (picked ? picked.has(t.id) : t.default), default: t.default };
+      return { id: t.id, name: t.name, miles: t.miles, hours: t.hours, time, active: !paused, default: t.default };
     });
   }
 
