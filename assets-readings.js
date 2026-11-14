@@ -33,6 +33,7 @@ function renderReadings(th) {
     pill.append(r.change ? "Meter change" : "Reading");
     rl.append(el("span", null, r.dateText), vh(", "), pill); // read in this order: date, kind, value, Delete
     rt.append(rl, vh(", "), el("span", "rv", r.text));
+    if (held && held.rowKey === r.key) { li.classList.add("blocked"); const bm = el("p", "blockedmsg"); bm.append(ico("alert"), el("b", null, "This is the record that blocked your entry.")); rt.append(bm); } // #13
     const del = btn("rr-del", "Delete", () => rdDelete(th.id, r.key)); del.dataset.key = r.key; del.setAttribute("aria-label", r.label);
     li.append(rt, del); ul.append(li);
   }

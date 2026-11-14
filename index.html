@@ -33,6 +33,7 @@
 <script src="assets-screen.js" defer></script>
 <script src="assets-edit.js" defer></script>
 <script src="assets-readings.js" defer></script>
+<script src="log-edit.js" defer></script>
 <script src="setup-screen.js" defer></script>
 <script src="jar-screen.js" defer></script>
 <script src="help.js" defer></script>
@@ -71,6 +72,7 @@
 <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
 <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 7V4h4v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-shop" viewBox="0 0 24 24"><path d="M4 9l1-5h14l1 5"/><path d="M5 9v11h14V9"/><path d="M10 20v-5h4v5"/><path d="M4 9a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0A2.7 2.7 0 0 0 20 9"/></symbol>
 <symbol id="i-jar" viewBox="0 0 24 24"><rect x="7" y="2.5" width="10" height="3" rx="1"/><path d="M6 7h12v12a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z"/><path d="M9 13h6"/></symbol></svg>
 
 <main class="wrap">
@@ -100,6 +102,7 @@
   <section class="screen" id="screen-jar" aria-labelledby="jpTitle" hidden>
     <header class="phead" id="jarHead">
       <div>
+        <a class="back" id="jarBack" href="#vehicles" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Fill-Ups and History</a>
         <p class="eyebrow">PICKLE IT</p>
         <h1 id="jpTitle" tabindex="-1"></h1>
         <p class="sub" id="jarSub"></p>
@@ -109,21 +112,19 @@
     <div id="jarMain" class="stack">
       <div id="jarBoxes" class="stack"></div>
       <section class="stack" id="jarThings" aria-labelledby="jarThingsH"></section>
-      <div class="stack" id="jarVeh" hidden>
-        <div class="list"><a class="arow" id="jarFill" href="#log"><span class="av"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-fuel"/></svg></span><span class="nm">Fill-Ups and History</span><span class="ch"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevr"/></svg></span><span class="mt">Enter a fill-up, see MPG and service history</span></a></div>
-        <section class="card" id="jarShops" aria-labelledby="jarShopsT"></section>
-      </div>
       <button class="btn2 add" id="jarAdd" type="button"></button>
     </div>
   </section>
 
   <!-- ================= LOG ================= -->
   <section class="screen" id="screen-log" aria-labelledby="logTitle">
-    <header>
-      <a class="back" href="#vehicles" aria-label="Back to Vehicles"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Vehicles</a>
-      <p class="eyebrow">PICKLE IT</p>
-      <h1 id="logTitle" tabindex="-1">Fill-Ups and History</h1>
-      <p class="sub">Log each fill-up to track MPG and maintenance. Everything is saved on this device.</p>
+    <div id="heldBack" hidden></div>
+    <header class="phead" id="logHead">
+      <div>
+        <p class="eyebrow">PICKLE IT</p>
+        <h1 id="logTitle" tabindex="-1">Fill-Ups and History</h1>
+        <p class="sub" id="logSub"></p>
+      </div>
     </header>
 
     <div class="nudge" id="iosNudge" hidden>
@@ -136,32 +137,19 @@
       <div class="nudge-acts"><button class="mbtn" type="button" id="nudgeExport">Export backup</button><button class="mbtn quiet" type="button" id="nudgeLater">Remind me later</button></div>
     </div>
 
-    <button class="mbanner" id="mBanner" type="button" hidden aria-haspopup="dialog">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>
-      <strong>Maintenance coming up</strong>
-      <span class="chev">Details ›</span>
-      <span class="mb-sub" id="mBannerSub"></span>
-    </button>
+    <div class="two">
+      <button class="btn2 add" id="logAddVehicle" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>Add a Vehicle</button>
+      <button class="btn2 add" id="logShopsBtn" type="button" aria-expanded="false" aria-controls="jarShops"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-shop"/></svg>Shops</button>
+    </div>
+    <section class="card" id="jarShops" aria-labelledby="jarShopsT" hidden></section>
 
-    <div class="card empty-card" id="noVehicles" hidden>
-      <h2 class="h2-plain">Add a vehicle to get started</h2>
-      <p>Fill-ups and maintenance are tracked per vehicle.</p>
-      <button class="save" id="logAddVehicle" type="button">Add a Vehicle</button>
+    <div class="card pempty" id="noVehicles" role="note" hidden>
+      <svg class="ic big" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-jar"/></svg>
+      <p class="lead">No vehicles on the shelf.</p>
+      <p class="hint">Add a vehicle to start tracking fuel and service.</p>
     </div>
 
-    <div id="logMain" class="stack">
-      <div class="bigbtns">
-        <button class="bigbtn" id="addFillBtn" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16"/><path d="M3 21h13"/><path d="M7 7h5v3.5H7z"/><path d="M15 10h1.5a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 0 3 0V9l-3-3.5"/></svg>
-          <span>Add fill-up</span>
-        </button>
-        <button class="bigbtn" id="addMaintBtn" type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>
-          <span>Log maintenance</span>
-        </button>
-      </div>
-
-      <div class="status" id="status" role="status" aria-live="polite" tabindex="-1"></div>
+    <div class="status" id="status" role="status" aria-live="polite" tabindex="-1"></div>
 
       <div id="entry" class="entry" hidden>
         <div class="tabs" role="tablist" aria-label="What to log">
@@ -215,51 +203,26 @@
         </div>
       </div>
 
-      <div class="histbar">
-        <select id="vehicle" aria-label="Vehicle to show history for"></select>
-        <label class="chk" for="showInactive" id="showInactiveWrap"><input type="checkbox" id="showInactive"> Show inactive vehicles</label>
-      </div>
+      <div id="logMain" class="stack">
+        <section class="stack" aria-labelledby="mpgH">
+          <h2 id="mpgH">Lifetime MPG</h2>
+          <ul class="list" id="allVeh"></ul>
+        </section>
 
-      <section class="card mpg" aria-labelledby="mpgTitle">
-        <h2 id="mpgTitle">MPG</h2>
-        <div class="alert" id="mpgWarn" hidden></div>
-        <div class="stats">
-          <div class="stat main"><span class="k">Lifetime</span><span class="v" id="sLife">—</span><span class="u" id="sLifeU"></span></div>
-          <div class="stat"><span class="k">Last 2 mo</span><span class="v" id="s2mo">—</span></div>
-          <div class="stat"><span class="k">Last fill-up</span><span class="v" id="sLast">—</span></div>
-        </div>
-        <div class="chart" id="chart"></div>
-        <div class="legend" id="legend" hidden><span><i></i>Fill-up MPG</span><span><i class="run"></i>2-month running MPG</span></div>
-        <p class="foot" id="mpgNote"></p>
-      </section>
+        <section class="stack" aria-labelledby="svcH">
+          <h2 id="svcH" tabindex="-1">Service History</h2>
+          <div class="status" id="svcMsg" role="status"></div>
+          <div class="list" id="svcList"></div>
+        </section>
 
-      <section class="sec" id="maintSec" hidden>
-        <div class="sechead"><h2 id="maintTitle">Maintenance</h2><button class="hidebtn" type="button" data-target="maintBody">Hide</button></div>
-        <div id="maintBody" class="stack-sm">
-          <div id="maintBox"></div>
-          <p class="foot">Starts from a standard list of tasks; edit the tasks and Every amounts in Settings, under Assets. Until you log a service, the app assumes it was done at the last regular interval. Tap “Mark done” after a service to restart that task's countdown.</p>
-        </div>
-      </section>
-
-      <section class="sec">
-        <div class="sechead"><h2>Lifetime MPG by vehicle</h2><button class="hidebtn" type="button" data-target="allVeh">Hide</button></div>
-        <div class="list" id="allVeh"></div>
-      </section>
-
-      <section class="sec">
-        <div class="sechead"><h2>Recent fill-ups</h2><button class="hidebtn" type="button" data-target="recentBody">Hide</button></div>
-        <div id="recentBody" class="stack-sm">
+        <section class="stack" aria-labelledby="recH">
+          <h2 id="recH" tabindex="-1">Recent Fill-Ups</h2>
           <div class="list" id="list"></div>
-          <p class="foot">“Mark fill-up(s) missed” tells the app you didn't log every fill-up before this one, so that stretch is left out of the MPG.</p>
-        </div>
-      </section>
+        </section>
 
-      <section class="sec">
-        <div class="sechead"><h2>Service history</h2><button class="hidebtn" type="button" data-target="svcList">Hide</button></div>
-        <div class="list" id="svcList"></div>
-      </section>
-    </div>
-  </section>
+        <a class="arow" id="logJarCard" href="#vehicles-jar"><span class="av"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-car"/></svg></span><span class="nm">Open the Vehicles Jar</span><span class="ch"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevr"/></svg></span><span class="mt" id="logJarMt"></span></a>
+      </div>
+    </section>
 
   <!-- ================= SETTINGS ================= -->
   <section class="screen" id="screen-settings" aria-labelledby="setTitle" hidden>
@@ -422,19 +385,6 @@
   </div>
 </nav>
 
-<!-- Maintenance due -->
-<dialog class="mdlg" id="mDialog" aria-labelledby="mDlgTitle">
-  <div class="mdlg-in">
-    <div class="mdlg-head">
-      <h3 id="mDlgTitle">Maintenance coming up</h3>
-      <button class="xbtn" id="mClose" type="button" aria-label="Close">×</button>
-    </div>
-    <p class="sub">Going by each vehicle's latest logged odometer.</p>
-    <div id="mDlgBody" class="stack-sm"></div>
-    <button class="save" id="mOk" type="button">Got it</button>
-  </div>
-</dialog>
-
 <!-- Done (Pantry): date, plus the odometer or hours when the task needs one -->
 <dialog class="mdlg sheet" id="dnDialog" aria-labelledby="dnTitle dnSub">
   <form class="mdlg-in" id="dnForm" novalidate>
@@ -564,6 +514,11 @@
 </dialog>
 
 <!-- Add flow (S4b-1): a full-screen dialog; setup-screen.js draws its pages -->
+<!-- Edit a maintenance log (#14): a full-screen page like the Add flow. Filled by log-edit.js. -->
+<dialog class="setup" id="leDlg" aria-labelledby="leTitle">
+  <div class="su-in" id="leIn"></div>
+</dialog>
+
 <dialog class="setup" id="setupDlg" aria-labelledby="suTitle">
   <div class="su-toast" id="suToast" hidden><p role="status"></p><button type="button">Undo</button></div>
   <p class="vh" id="suLive" role="status"></p>

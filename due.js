@@ -232,10 +232,22 @@
     const { field, es } = meterEntries(meter, logs.filter((l) => l.thingId === thing.id), [...meterSources(thing, fillups.filter((f) => f.thingId === thing.id), readings.filter((r) => r.thingId === thing.id), today), cand]);
     const me = es.find((e) => e.src === cand), others = es.filter((e) => e !== me);
     const pick = (list, better) => list.reduce((a, e) => (!a || better(e, a) ? e : a), null);
-    const last = pick(others.filter((e) => e.date <= date), (e, a) => e.v > a.v || (e.v === a.v && e.date > a.date)), later = pick(others.filter((e) => e.date > date), (e, a) => e.v < a.v || (e.v === a.v && e.date < a.date)); // ties: the nearest to `date`
-    const out = (e) => (e ? { typed: e.src[field], date: e.date } : null);
+    // A same-day entry saved after the candidate counts as a later one (AC 42): a meter change made for the candidate would not shift it. Create flows pass "now", so nothing changes for them.
+    const before = (e) => e.date < date || (e.date === date && (e.src.createdAt || "") <= cand.createdAt);
+    const last = pick(others.filter(before), (e, a) => e.v > a.v || (e.v === a.v && e.date > a.date)), later = pick(others.filter((e) => !before(e)), (e, a) => e.v < a.v || (e.v === a.v && e.date < a.date)); // ties: the nearest to `date`
+    // id, store and kind name the record for the refusal link (#13). The starting odometer or hours is a field, not a row: all three are null.
+    const out = (e) => (e ? { typed: e.src[field], date: e.date, id: e.src.id ?? null, store: !e.src.id ? null : e.isLog ? "logs" : "units" in e.src ? "fillups" : "readings",
+      kind: !e.src.id ? null : e.isLog ? "log" : "units" in e.src && e.src.units > 0 ? "fill-up" : "reading" } : null);
     return { status: last && me.v < last.v ? "lower" : later && me.v > later.v ? "higher" : "ok", last: out(last), later: out(later) };
   }
+  // Log edit (AC 43): the pairs of neighbouring entries of one thing's meter (by date, then createdAt) whose shifted values go DOWN, as "idA>idB" keys.
+  // newlyOutOfOrder: does the proposed data have a descent the current data did not? Old out-of-order data is not an edit's fault.
+  function descents({ logs = [], readings = [], fillups = [] }, thing, meter, today) {
+    const { es } = meterEntries(meter, logs.filter((l) => l.thingId === thing.id), meterSources(thing, fillups.filter((f) => f.thingId === thing.id), readings.filter((r) => r.thingId === thing.id), today));
+    const key = (e) => e.src.id || `start:${e.date}`, sorted = [...es].sort((a, b) => cmp(a.date, b.date) || cmp(a.src.createdAt || "", b.src.createdAt || ""));
+    return sorted.flatMap((e, i) => (i && sorted[i - 1].v > e.v ? [`${key(sorted[i - 1])}>${key(e)}`] : []));
+  }
+  const newlyOutOfOrder = (before, after, thing, meter, today) => { const was = new Set(descents(before, thing, meter, today)); return descents(after, thing, meter, today).some((k) => !was.has(k)); };
 
   // data = { things (tasks embedded), logs, readings, fillups, hiddenJars }. One row per active task of an active thing in a shown jar;
   // paused tasks, inactive tasks/things, hidden jars and one-offs (taskId "other") give no row.
@@ -295,7 +307,7 @@
   // The Remind a new Miles or Hours rule starts with (spec 4.20 AC 5; the one rule for the Assets form, the setup row and the importer). Never more than Every.
   const defaultRemind = (meter, every) => (meter === "hours" ? Math.round(every) / 10 : Math.min(every, every <= 15000 ? 1000 : 5000));
 
-  const api = { defaultRemind, BOXES, BOX_CAP, daysBetween, addUnits, occurrence, normaliseWindow, windowOpen, resumeDate, dateBox, mostUrgent, meterBox, boxOf, computeDue, rowText, compareRows, hasHourMeter, meterEntries, meterSources, shiftOf, checkReading, pantryTasks, pantryBoxes };
+  const api = { defaultRemind, BOXES, BOX_CAP, daysBetween, addUnits, occurrence, normaliseWindow, windowOpen, resumeDate, dateBox, mostUrgent, meterBox, boxOf, computeDue, rowText, compareRows, hasHourMeter, meterEntries, meterSources, shiftOf, checkReading, descents, newlyOutOfOrder, pantryTasks, pantryBoxes };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.Due = api;
 })(typeof self !== "undefined" ? self : this);
