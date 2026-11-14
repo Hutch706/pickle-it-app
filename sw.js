@@ -6,7 +6,7 @@
    missing from the server is skipped instead of stopping the install. */
 const CACHE = "pickle-it-v1";
 const FILES = [
-  "./", "./index.html", "./app.css", "./theme.js", "./data.js", "./due.js", "./readings-list.js", "./starters.js", "./assets.js", "./jar-page.js", "./tasks-form.js", "./setup.js", "./setup-home.js", "./onboarding.js", "./pantry.js", "./assets-screen.js", "./assets-edit.js", "./assets-readings.js", "./setup-screen.js", "./jar-screen.js", "./help.js", "./app.js", "./manifest.webmanifest",
+  "./", "./index.html", "./app.css", "./theme.js", "./data.js", "./due.js", "./readings-list.js", "./starters.js", "./assets.js", "./jar-page.js", "./tasks-form.js", "./setup.js", "./setup-home.js", "./onboarding.js", "./pantry.js", "./assets-screen.js", "./assets-edit.js", "./assets-readings.js", "./log-edit.js", "./setup-screen.js", "./jar-screen.js", "./help.js", "./app.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png",
   "./icons/apple-touch-icon.png", "./icons/favicon.svg", "./icons/favicon-32.png",
 ];

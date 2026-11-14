@@ -35,13 +35,25 @@ function saveErrorText(e) {
   return "Couldn't save" + (e && e.message ? ` (${e.message})` : "") + ". Try again.";
 }
 // "Tap again to …" confirmation for small destructive buttons.
-function armedButton(label, armedLabel, action) {
-  const b = btn("del", label);
-  let armed = false, timer;
+// o.name: what the row is, for the spoken name ("Delete fill-up Truck, Oct 5, 45,210 miles"). o.said: the polite line after the delete. o.heading: where focus goes
+// when no row is left. The redraw removes the button, so focus goes to the Delete of the row that takes its place (or the last one), else the heading (QA M-2, M-7).
+function armedButton(label, armedLabel, action, o = {}) {
+  const b = btn("del", label), nm = o.name ? " " + o.name : "", rowSel = ":scope > .fu, :scope > .item";
+  const setName = (t) => { if (o.name) b.setAttribute("aria-label", t + nm); };
+  let armed = false, timer; setName(label);
   b.addEventListener("click", async () => {
-    if (!armed) { armed = true; b.textContent = armedLabel; b.classList.add("armed"); timer = setTimeout(() => { armed = false; b.textContent = label; b.classList.remove("armed"); }, 4000); return; }
+    if (!armed) {
+      armed = true; b.textContent = armedLabel; b.classList.add("armed"); setName(armedLabel); liveSay(armedLabel + ".");
+      timer = setTimeout(() => { armed = false; b.textContent = label; b.classList.remove("armed"); setName(label); }, 4000); return;
+    }
     clearTimeout(timer); b.disabled = true;
-    try { await action(); } catch (e) { setStatus(saveErrorText(e), "err"); b.disabled = false; }
+    const row = b.closest(".fu, .item"), box = row && row.parentNode, at = box ? [...box.querySelectorAll(rowSel)].indexOf(row) : -1;
+    try {
+      await action();
+      if (o.said) liveSay(o.said);
+      const rows = box ? [...box.querySelectorAll(rowSel)] : [];
+      (rows[Math.min(at, rows.length - 1)]?.querySelector(".del") || (o.heading && $(o.heading)))?.focus(); // the row that took its place, else the last one
+    } catch (e) { setStatus(saveErrorText(e), "err"); b.disabled = false; }
   });
   return b;
 }
@@ -116,18 +128,19 @@ let curScreen = null, curJar = null, pendingOpen = null, pendingThing = false; /
 // A route change (Back, a link, a typed hash) cancels any open sheet or prompt: nothing is saved, and each dialog's close handler puts focus back where it came from. The Add flow (setupDlg) handles popstate itself.
 function closeRouteDialogs() {
   let any = false;
-  for (const id of ["mcDialog", "dnDialog", "arDialog", "cDialog", "mDialog"]) { const d = $(id); if (d.open) { d.close("cancel"); any = true; } } // the meter-change prompt sits on top of the sheet, so it goes first
+  for (const id of ["mcDialog", "dnDialog", "arDialog", "cDialog"]) { const d = $(id); if (d.open) { d.close("cancel"); any = true; } } // the meter-change prompt sits on top of the sheet, so it goes first
   return any;
 }
 function route() {
   const closedDlg = closeRouteDialogs();
   let s = location.hash.replace(/^#/, "");
   if (s === "backup") s = "settings"; // old links and bookmarks
-  const open = routeAround(s, S.hiddenJars);
-  if (open !== s) { s = open; history.replaceState(null, "", "#pantry"); } // a hidden jar's address opens the Pantry
-  const bar = JAR_NAMES.includes(s) ? s : ""; // which jar's bottom-bar link is current on the jar page
-  const jar = bar || null;
-  if (jar) s = "jar"; // the jar page (spec 4.21); a hidden jar's address was sent to the Pantry above
+  const jarView = s === "vehicles-jar"; // the Vehicles jar page, opened from the last card on the Vehicles page (Fill-Ups and History)
+  const asked = jarView ? "vehicles-jar" : s, open = routeAround(asked, S.hiddenJars);
+  if (open !== asked) { s = open; history.replaceState(null, "", "#pantry"); } // a hidden jar's address opens the Pantry
+  const jar = open !== asked ? null : jarView ? "vehicles" : JAR_NAMES.includes(s) && s !== "vehicles" ? s : null;
+  if (jar) s = "jar"; // the jar page (spec 4.21); the Vehicles tab itself is the Fill-Ups and History page (v0.1.1 #9)
+  else if (s === "vehicles") s = "log";
   else if (!SCREENS.includes(s) || s === "jar") s = "pantry";
   const arrived = s !== curScreen || jar !== curJar; // a different screen or jar: the jar page starts fresh and its heading takes focus
   if (jar && arrived) resetJarPage(jar);
@@ -141,13 +154,14 @@ function route() {
   else if ($("delDialog").open && !deleting) $("delDialog").close(); // leaving Settings at either delete step changes nothing
   if (s === "pantry") renderPantry();
   if (s === "jar") renderJar();
+  if (s === "log") { if (arrived) resetLogPage(); renderLog(); }
   if (arrived) window.scrollTo(0, 0);
   const wasScreen = curScreen; curScreen = s; curJar = jar;
   if (closedDlg && arrived) focusHeading = true; // the closed dialog's opener may be on a screen that just hid
   if ((s === "jar" || s === "log") && arrived && wasScreen !== null) focusHeading = true; // arriving from a tab or a link: the heading takes focus (4.21 AC 9)
   if (s === "settings" && pendingThing) { pendingThing = false; const h = $("asDetail").querySelector("h1"); if (h) { h.tabIndex = -1; h.focus(); } } // a thing opened from the jar page
   if (focusHeading) { focusHeading = false; const h = $("screen-" + s).querySelector("h1"); h.tabIndex = -1; h.focus(); }
-  if (s === "log") { maybeAutoOpen(); if (pendingFill) { pendingFill = false; if (vehicleThings().length) openEntry(false); } }
+  if (s === "log") { if (pendingFill) { pendingFill = false; if (vehicleThings().length) openEntry(false); } }
   if (pendingOpen) {
     const d = $(pendingOpen); pendingOpen = null;
     if (d) { d.open = true; setTimeout(() => d.scrollIntoView({ block: "start", behavior: smooth() }), 50); if (/^H\d$/.test(d.tagName)) { d.tabIndex = -1; d.focus({ preventScroll: true }); } } // a heading (Import a Backup) takes focus
@@ -182,66 +196,55 @@ function renderAll() {
 }
 
 // ---------- Vehicle pickers ----------
-// Two pickers in the entry forms (kept in sync) and "history" at the top of the Log screen, which drives the panels below it.
-const histSel = $("vehicle"), entrySels = [$("eVehicle"), $("mVehicle")], showInactive = $("showInactive");
+// Two pickers in the entry forms (kept in sync). Inactive vehicles are listed only when no vehicle is active.
+const entrySels = [$("eVehicle"), $("mVehicle")];
 function fillSelect(sel, keep) {
   sel.replaceChildren();
   const active = vehicleThings().filter((v) => v.active), inactive = vehicleThings().filter((v) => !v.active);
   for (const v of active) sel.add(new Option(v.name, v.id));
-  if ((showInactive.checked || !active.length) && inactive.length) {
-    if (active.length) { const d = new Option("\u2500".repeat(18), ""); d.disabled = true; sel.add(d); }
-    for (const v of inactive) sel.add(new Option(v.name + " (inactive)", v.id));
-  }
+  if (!active.length) for (const v of inactive) sel.add(new Option(v.name + " (inactive)", v.id));
   const ok = [...sel.options].some((o) => o.value === keep && !o.disabled);
   sel.value = ok ? keep : (sel.options[0]?.value ?? "");
 }
 function fillVehicleSelects() {
-  const hist = histSel.value || pref.get("vehicle"), ent = entrySels[0].value || pref.get("entryVehicle");
-  fillSelect(histSel, hist);
+  const ent = entrySels[0].value || pref.get("entryVehicle");
   for (const s of entrySels) fillSelect(s, ent);
 }
 function selectVehicle(id) {
-  pref.set("vehicle", id); pref.set("entryVehicle", id);
-  if (!thingById(id)?.active) { showInactive.checked = true; pref.set("showInactive", "1"); }
-  fillSelect(histSel, id); for (const s of entrySels) fillSelect(s, id);
+  pref.set("entryVehicle", id);
+  for (const s of entrySels) fillSelect(s, id);
 }
-showInactive.addEventListener("change", () => {
-  pref.set("showInactive", showInactive.checked ? "1" : "0");
-  const hist = histSel.value;
-  fillVehicleSelects();
-  if (histSel.value !== hist) renderLog();
-});
-histSel.addEventListener("change", () => { pref.set("vehicle", histSel.value); renderLog(); });
 for (const sel of entrySels) sel.addEventListener("change", () => {
   for (const o of entrySels) if (o !== sel) o.value = sel.value;
   pref.set("entryVehicle", sel.value);
   fillMaintItems(); prefillMaintOdo();
 });
-// Hide / Show buttons on the Log screen sections, remembered on this device.
-for (const b of document.querySelectorAll(".hidebtn")) {
-  const body = $(b.dataset.target), key = "hide:" + b.dataset.target;
-  const set = (h) => { body.hidden = h; b.textContent = h ? "Show" : "Hide"; b.setAttribute("aria-expanded", String(!h)); };
-  set(pref.get(key) === "1");
-  b.addEventListener("click", () => { const h = !body.hidden; set(h); pref.set(key, h ? "1" : "0"); });
-}
 
-// ---------- Log screen ----------
+// ---------- The Vehicles page: Fill-Ups and History (v0.1.1 #8 to #10; docs/design/vehicles-fillups-page.html) ----------
+// Lifetime MPG per active vehicle, Service History, Recent Fill-Ups (inactive vehicles too), then a card that opens the Vehicles jar. The first 10 rows show; Show N More adds up to 100.
+const LOG_FIRST = 10, LOG_STEP = 100;
+let lg = { fills: LOG_FIRST, svc: LOG_FIRST }; // rows shown; in memory only, fresh each time the page is opened
+let logJarHid = null; // was the Vehicles jar hidden at the last draw of this page? null: not drawn yet since arriving
+const resetLogPage = () => { lg = { fills: LOG_FIRST, svc: LOG_FIRST }; jp.shops = freshShops(); logJarHid = null; };
 function renderLog() {
-  const has = vehicleThings().length > 0;
+  if (!$("screen-log").hidden) { // the jar was hidden while this page was open (another tab): go to the Pantry, as the jar page does. Arriving with it already hidden is allowed.
+    const hid = S.hiddenJars.includes("vehicles"), was = logJarHid; logJarHid = hid;
+    if (hid && was === false) { focusHeading = true; history.replaceState(null, "", "#pantry"); route(); liveSay("Vehicles was hidden, so you're back at the Pantry."); return; }
+  }
+  const active = vehicleThings().filter((v) => v.active), has = active.length > 0;
   $("noVehicles").hidden = has;
   $("logMain").hidden = !has;
-  if (!has) { $("mBanner").hidden = true; closeEntry(); return; }
-  $("showInactiveWrap").hidden = !vehicleThings().some((v) => !v.active) || !vehicleThings().some((v) => v.active);
-  renderMpg(); renderAllVehicles(); renderList(); renderServices(); refreshMaint();
+  $("logSub").hidden = !has; $("logSub").textContent = plural(active.length, "active vehicle");
+  if (!$("screen-log").hidden) { $("logHead").append($("menuWrap")); renderMenu(pantryContext()); }
+  renderShops();
+  if (!has) { closeEntry(); return; }
+  renderAllVehicles(); renderServices(); renderList(); renderJarCard();
   fillStationList(); fillShopSelect(); fillMaintItems();
 }
 
 // Entry: the Fill-up and Maintenance tabs
 function openEntry(maint) {
   if ($("entry").hidden) {
-    // Start with the vehicle you're looking at.
-    const hv = histSel.value;
-    if (hv && [...entrySels[0].options].some((o) => o.value === hv && !o.disabled)) { for (const s of entrySels) s.value = hv; pref.set("entryVehicle", hv); }
     resetFillForm(); resetMaintForm(); fillMaintItems();
   }
   $("entry").hidden = false;
@@ -256,8 +259,6 @@ function showTab(maint) {
   $("panelFill").inert = maint; $("panelMaint").inert = !maint;
   if (maint) { if (!$("mDate").value) $("mDate").value = today(); if (!$("mOdo").value) prefillMaintOdo(); fillMaintItems(); }
 }
-$("addFillBtn").addEventListener("click", () => openEntry(false));
-$("addMaintBtn").addEventListener("click", () => openEntry(true));
 $("tabFill").addEventListener("click", () => showTab(false));
 $("tabMaint").addEventListener("click", () => showTab(true));
 
@@ -312,7 +313,7 @@ async function checkedPlan(saveBtn, field, fail, v, recs, date, odometer, now) {
     if (!yes) { field.focus(); field.select(); return null; }
     res = formReadingPlan(v, recs, { ...o, data: readingData(v.id), confirmLower: true }); // checked again: another tab may have added a reading
   }
-  if (res.error) { fail(res.error); field.focus(); return null; }
+  if (res.error) { fail(res.error); if (res.later) refusalLink($(saveBtn.id === "mSave" ? "mStatus" : "fStatus"), res.later, "miles", entryDraft(saveBtn.id === "mSave", v)); field.focus(); return null; } // #13
   return res;
 }
 const CHANGE_NOTE = " Meter change recorded. Older readings adjusted.";
@@ -336,7 +337,7 @@ $("form").addEventListener("submit", async (ev) => {
   try {
     await commit({ put: plan.put });
     resetFillForm(); closeEntry();
-    if (histSel.value !== v.id) { selectVehicle(v.id); renderLog(); }
+    selectVehicle(v.id);
     const s = vehicleStats(fillupsFor(v.id), readingsFor(v.id)), note = plan.change ? CHANGE_NOTE : "";
     if (s.latest?.id === r.rec.id && s.flagged) setStatus(`Saved. Heads up: ${warningText(v.name, s).title}. Check the odometer and gallons.${note}`, "warn");
     else if (s.latest?.id === r.rec.id) setStatus(`Saved: ${v.name}, ${s.latest.mpg.toFixed(1)} MPG on this tank.${note}`, "ok");
@@ -368,6 +369,9 @@ function updateMaintSummary() {
   const names = [...$("mItemsList").querySelectorAll("input:checked")].map((i) => i.parentElement.textContent);
   $("mItemsSum").textContent = !names.length ? "Select tasks" : names.length <= 2 ? names.join(", ") : `${names.length} tasks selected`;
 }
+// A closed picker or dialog keeps its inner scroll position, so reopening it started wherever it was left (usually the bottom): reset on every open / close.
+$("mItems").addEventListener("toggle", () => { $("mItemsList").scrollTop = 0; });
+document.addEventListener("close", (ev) => { ev.target.scrollTop = 0; }, true); // "close" doesn't bubble, so listen in the capture phase
 function fillMaintItems() {
   const list = $("mItemsList"), keep = new Set([...list.querySelectorAll("input:checked")].map((i) => i.value));
   const v = thingById(entrySels[0].value);
@@ -413,238 +417,96 @@ $("mForm").addEventListener("submit", async (ev) => {
     await commit({ put: plan.put });
     setStatus(`Saved maintenance: ${v.name}, ${mi(odometer)}${shop ? " at " + shop : ""}: ${andList([...picked.map((i) => i.name), other ? "other repairs" : null])}.${plan.change ? CHANGE_NOTE : ""}`, "ok");
     resetMaintForm(); closeEntry();
-    if (histSel.value !== v.id) { selectVehicle(v.id); renderLog(); }
+    selectVehicle(v.id);
     $("status").focus();
   } catch (e) { fail(saveErrorText(e)); }
   finally { $("mSave").disabled = false; }
 });
 
-// MPG panel and chart
-const SVGNS = "http://www.w3.org/2000/svg";
-function svgEl(tag, attrs) { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
-function drawChart(trips) {
-  const box = $("chart"); box.replaceChildren();
-  if (trips.length < 2) { $("legend").hidden = true; return; }
-  const W = 320, H = 150, L = 30, R = 8, T = 8, B = 20;
-  const vals = trips.flatMap((t) => [t.mpg, t.running]).filter((v) => v != null);
-  let lo = Math.min(...vals), hi = Math.max(...vals);
-  const pad = Math.max(1, (hi - lo) * 0.15); lo = Math.floor(lo - pad); hi = Math.ceil(hi + pad);
-  const x = (i) => L + (i * (W - L - R)) / (trips.length - 1);
-  const y = (v) => T + ((hi - v) * (H - T - B)) / (hi - lo);
-  const svg = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "MPG by fill-up" });
-  for (const v of [lo, (lo + hi) / 2, hi]) {
-    svg.append(svgEl("line", { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: "var(--line)", "stroke-width": 1 }));
-    const t = svgEl("text", { x: L - 4, y: y(v) + 3, "text-anchor": "end" }); t.textContent = v.toFixed(0); svg.append(t);
-  }
-  const path = (key) => trips.map((t, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(t[key]).toFixed(1)}`).join(" ");
-  svg.append(svgEl("path", { d: path("mpg"), fill: "none", stroke: "var(--accent)", "stroke-width": 1.5 }));
-  svg.append(svgEl("path", { d: path("running"), fill: "none", stroke: "var(--run)", "stroke-width": 3, "stroke-linejoin": "round" }));
-  trips.forEach((t, i) => svg.append(svgEl("circle", { cx: x(i), cy: y(t.mpg), r: i === trips.length - 1 ? 4 : 2.5, fill: "var(--accent)" })));
-  const d0 = svgEl("text", { x: L, y: H - 4, "text-anchor": "start" }); d0.textContent = shortDate(trips[0].date);
-  const d1 = svgEl("text", { x: W - R, y: H - 4, "text-anchor": "end" }); d1.textContent = shortDate(trips[trips.length - 1].date);
-  svg.append(d0, d1);
-  // Hover or touch-drag: snap to the nearest fill-up and show its MPG and the 2-month running MPG.
-  const guide = svgEl("line", { y1: T, y2: H - B, stroke: "var(--muted)", "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
-  const dot = svgEl("circle", { r: 5, fill: "var(--accent)", stroke: "var(--surface)", "stroke-width": 2, visibility: "hidden" });
-  const hit = svgEl("rect", { x: L, y: 0, width: W - L - R, height: H, fill: "transparent" });
-  svg.append(guide, dot, hit);
-  const tip = el("div", "tip"); tip.hidden = true;
-  const show = (ev) => {
-    const r = svg.getBoundingClientRect();
-    const sx = ((ev.clientX - r.left) / r.width) * W;
-    const i = Math.max(0, Math.min(trips.length - 1, Math.round(((sx - L) * (trips.length - 1)) / (W - L - R))));
-    const t = trips[i];
-    for (const [k, v] of Object.entries({ x1: x(i), x2: x(i), visibility: "visible" })) guide.setAttribute(k, v);
-    for (const [k, v] of Object.entries({ cx: x(i), cy: y(t.mpg), visibility: "visible" })) dot.setAttribute(k, v);
-    tip.replaceChildren(el("span", null, `${t.mpg.toFixed(1)} MPG · ${shortDate(t.date)}`), el("span", "run", t.running != null ? `${t.running.toFixed(1)} running` : ""));
-    tip.hidden = false;
-    const px = (x(i) / W) * r.width, half = tip.offsetWidth / 2;
-    tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, px - half)) + "px";
-  };
-  const hide = () => { tip.hidden = true; guide.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); };
-  hit.addEventListener("pointermove", show);
-  hit.addEventListener("pointerdown", show);
-  hit.addEventListener("pointerleave", hide);
-  box.append(svg, tip);
-  $("legend").hidden = false;
-}
-function renderMpg() {
-  const v = thingById(histSel.value);
-  if (!v) return;
-  const s = vehicleStats(fillupsFor(v.id), readingsFor(v.id));
-  $("mpgTitle").textContent = `${v.name} MPG`;
-  $("sLife").textContent = s.lifetime ? s.lifetime.toFixed(1) : "—";
-  $("sLifeU").textContent = s.trips.length ? `${s.trips.reduce((a, t) => a + t.miles, 0).toLocaleString()} mi` : "";
-  $("s2mo").textContent = s.twoMonth ? s.twoMonth.toFixed(1) : "—";
-  $("sLast").textContent = s.latest ? s.latest.mpg.toFixed(1) : "—";
-  const warn = $("mpgWarn");
-  if (s.flagged) { const w = warningText(v.name, s); warn.replaceChildren(el("strong", null, w.title), document.createTextNode(w.body)); warn.hidden = false; }
-  else warn.hidden = true;
-  drawChart(s.trips);
-  $("mpgNote").textContent =
-    s.fillups === 0 ? "No fill-ups for this vehicle yet. The first one sets the starting odometer; MPG starts with the second."
-    : s.fillups === 1 ? "One fill-up saved. MPG shows up after the next one."
-    : `${plural(s.fillups, "fill-up")}.${s.gaps ? ` ${s.gaps === 1 ? "One stretch" : s.gaps + " stretches"} with fill-ups that weren't logged ${s.gaps === 1 ? "is" : "are"} left out of the MPG.` : ""} You'll get a warning when a fill-up's MPG is 20% or more above or below the vehicle's average.`;
-}
+// ---------- Lifetime MPG, Service History, Recent Fill-Ups, the jar card ----------
+const moreBox = (shown, total, what, onMore) => { // "Showing 10 of 214." and Show 100 More; the next rows appear in place and focus goes to the first new one
+  const more = Math.min(LOG_STEP, total - shown), box = el("div", "more"), p = el("p"), b = btn("btn2 small", `Show ${more} More`, onMore);
+  p.append(el("b", null, `Showing ${shown} of ${total}.`)); b.append(vh(" " + what)); box.append(p, b); return box;
+};
 function renderAllVehicles() {
   const box = $("allVeh"); box.replaceChildren();
-  const rows = vehicleThings().map((v) => ({ v, s: vehicleStats(fillupsFor(v.id), readingsFor(v.id)) })).filter((x) => x.s.fillups > 0);
-  if (!rows.length) { box.append(el("div", "empty", "Lifetime MPG for each vehicle shows here once it has two fill-ups.")); return; }
-  for (const { v, s } of rows) {
-    const row = el("div", "item");
-    const life = el("div", "lifetime" + (s.flagged ? " flag" : ""), s.lifetime ? s.lifetime.toFixed(1) : "—");
-    if (s.lifetime) life.append(el("span", "unit", "MPG"));
-    row.append(el("div", "veh", v.name + (v.active ? "" : " (inactive)")), life,
-      el("div", "meta", s.trips.length ? `${plural(s.fillups, "fill-up")} · last ${s.latest.mpg.toFixed(1)} MPG${s.flagged ? " (check)" : ""}` : `${plural(s.fillups, "fill-up")} · needs one more for MPG`));
-    box.append(row);
+  const model = Assets.buildModel({ things: S.things, logs: S.logs, readings: S.readings, fillups: S.fillups, hiddenJars: S.hiddenJars }, today());
+  for (const t of JarPage.thingsFor(model, "vehicles", Infinity).shown.filter((x) => x.active)) { // the Things list's order
+    const life = vehicleStats(fillupsFor(t.id), readingsFor(t.id)).lifetime, li = el("li", "mp");
+    const nm = el("span", "nm", t.name), val = el("span", life ? "val" : "no");
+    if (life) val.append(el("b", null, life.toFixed(1)), " mpg"); else val.textContent = "No MPG yet";
+    nm.setAttribute("aria-hidden", "true"); val.setAttribute("aria-hidden", "true");
+    li.append(vh(`${t.name}, ${life ? life.toFixed(1) + " miles per gallon lifetime" : "no MPG yet"}`), nm, val); box.append(li);
   }
 }
-function renderList() {
+function renderList() { // Recent Fill-Ups
   const list = $("list"); list.replaceChildren();
-  const v = thingById(histSel.value);
-  if (!v) return;
-  const mpgById = new Map(vehicleStats(fillupsFor(v.id), readingsFor(v.id)).trips.map((t) => [t.id, t.mpg]));
-  // Newest date first; odometer breaks ties.
-  const recent = fillupsFor(v.id).sort((a, b) => cmp(b.date, a.date) || b.odometer - a.odometer).slice(0, 25);
-  if (!recent.length) { list.append(el("div", "empty", `No fill-ups for the ${v.name} yet.`)); return; }
-  for (const r of recent) {
-    const row = el("div", "item");
-    const m = mpgById.get(r.id);
-    const right = el("div", "lifetime", m ? m.toFixed(1) : "—");
-    if (m) right.append(el("span", "unit", "MPG"));
-    const cost = +r.units > 0 && r.pricePerUnit != null ? r.units * r.pricePerUnit : null;
-    row.append(el("div", "veh", `${shortDate(r.date)}${r.station ? " · " + r.station : ""}`), right,
-      el("div", "meta", `${Number(r.odometer).toLocaleString()} mi · ` + (+r.units > 0 ? `${Number(r.units).toFixed(3)} gal` + (r.pricePerUnit != null ? ` @ ${money(r.pricePerUnit, 3)}` : "") + (cost != null ? ` = ${money(cost)}` : "") : "odometer reading only")));
-    // "Missed": fill-ups weren't logged between the previous one and this one. That stretch is left out of the MPG.
-    const acts = el("div", "acts");
-    const miss = btn("del", r.missed ? "Marked missed before this fill-up (undo)" : "Mark fill-up(s) missed before this one", async () => {
-      miss.disabled = true;
-      try { await commit({ put: { fillups: [{ ...r, missed: !r.missed, updatedAt: nowISO() }] } }); } catch (e) { setStatus(saveErrorText(e), "err"); miss.disabled = false; }
-    });
-    if (+r.units > 0) acts.append(miss); // an odometer-only record is a reading, not a fill-up
-    acts.append(armedButton("Delete", "Tap again to delete", () => deleteRecords(v, { fillups: [r.id] })));
-    row.append(acts);
-    list.append(row);
-  }
+  const all = recentFillups(vehicleThings(), S.fillups, S.readings), now = today();
+  if (!all.length) { list.append(el("div", "empty", "No fill-ups yet. Use Enter Fill-Up in the Menu after your next stop at the pump.")); return; }
+  const at = held && held.fillId ? all.findIndex((e) => e.r.id === held.fillId) : -1; // the record that blocked an entry (#13) is always shown
+  const shown = Math.min(all.length, Math.max(lg.fills, at + 1));
+  all.slice(0, shown).forEach(({ v, r, row }, i) => {
+    const blocked = held && held.fillId === r.id, gal = +(+r.units).toFixed(3);
+    const cost = r.pricePerUnit != null ? r.units * r.pricePerUnit : r.total, tot = Number.isFinite(cost) ? money(cost) : "";
+    const trip = row.trip != null ? `${row.trip.toLocaleString()} mi` : "", mpg = row.mpg != null && row.kept ? row.mpg.toFixed(1) : "";
+    const item = el("div", "fu" + (blocked ? " blocked" : "")); item.dataset.id = r.id; if (!blocked) item.tabIndex = -1;
+    const l1 = el("div", "l1"), l2 = el("div", "l2"), stats = el("div", "stats");
+    l1.append(el("b", null, v.name + (v.active ? "" : " (inactive)")), el("span", "dt", dayText(r.date, now)));
+    for (const k of [`${Number(r.odometer).toLocaleString()} mi`, `${gal} gal`, tot]) if (k) { if (l2.childNodes.length) l2.append(" · "); l2.append(el("i", null, k)); }
+    for (const [lb, val] of [["Trip", trip], ["MPG", mpg]]) { const c = el("div", "c"); c.append(el("span", "lb", lb), el("span", "vl" + (val ? "" : " dash"), val || "—")); stats.append(c); }
+    const sr = `${v.name}, ${dayText(r.date, now)}, ${Number(r.odometer).toLocaleString()} miles, ${gal} gallons${tot ? ", " + tot : ""}. ${trip ? "Trip " + row.trip.toLocaleString() + " miles" : "No trip"}. ${mpg ? mpg + " miles per gallon" : "No MPG"}${row.trip != null && !row.kept ? ", left out of lifetime MPG" : ""}.`;
+    const vis = el("div", "fvis"); vis.setAttribute("aria-hidden", "true"); vis.append(l1, l2, stats);
+    item.append(vh(sr), vis);
+    if (blocked) { const b = el("p", "blockedmsg"); b.append(ico("alert"), el("b", null, "This is the record that blocked your entry.")); item.append(b); } // #13
+    item.append(armedButton("Delete", "Tap again to delete", () => deleteRecords(v, { fillups: [r.id] }),
+      { name: `fill-up ${v.name}, ${dayText(r.date, now)}, ${Number(r.odometer).toLocaleString()} miles`, said: "Fill-up deleted.", heading: "recH" })); // every row: a mistyped fill-up must be removable
+    list.append(item);
+  });
+  if (shown < all.length) list.append(moreBox(shown, all.length, "fill-ups", () => {
+    const before = shown; lg.fills = shown + Math.min(LOG_STEP, all.length - shown); renderList();
+    liveSay(`Showing ${Math.min(lg.fills, all.length)} of ${all.length} fill-ups.`);
+    (list.querySelectorAll(".fu")[before] || list.querySelector(".more .btn2"))?.focus();
+  }));
 }
 function renderServices() {
-  const box = $("svcList"); box.replaceChildren();
-  const v = thingById(histSel.value);
-  if (!v) return;
+  const box = $("svcList"), now = today(); box.replaceChildren();
   const visits = new Map();
-  for (const s of logsFor(v.id)) { if (!visits.has(s.visit)) visits.set(s.visit, []); visits.get(s.visit).push(s); }
+  for (const s of S.logs) { const v = thingById(s.thingId); if (!v || v.jar !== "vehicles") continue; const k = s.thingId + "|" + s.visit; if (!visits.has(k)) visits.set(k, []); visits.get(k).push(s); }
   const groups = [...visits.values()].map((g) => g.sort((a, b) => cmp(String(a.createdAt), String(b.createdAt)) || cmp(a.id, b.id)))
-    .sort((a, b) => cmp(b[0].date, a[0].date) || b[0].odometer - a[0].odometer).slice(0, 25);
-  if (!groups.length) { box.append(el("div", "empty", `No maintenance logged for the ${v.name} yet.`)); return; }
-  for (const g of groups) {
-    const s0 = g[0], row = el("div", "item");
+    .sort((a, b) => cmp(b[0].date, a[0].date) || cmp(String(b[0].createdAt), String(a[0].createdAt)) || cmp(b[0].id, a[0].id));
+  if (!groups.length) { box.append(el("div", "empty", "Nothing logged yet. The jar's waiting for its first label.")); return; }
+  const shown = Math.min(groups.length, lg.svc);
+  const badge = (s) => { const b = el("span", s.status === "skipped" ? "badge mut" : "badge ok"); b.append(ico(s.status === "skipped" ? "skip" : "check"), s.status === "skipped" ? "Skipped" : "Done"); return b; };
+  groups.slice(0, shown).forEach((g, i) => {
+    const s0 = g[0], v = thingById(s0.thingId), row = el("div", "item"); row.tabIndex = -1;
     const names = g.map((s) => s.taskId === "other" ? (s.notes ? `Other: ${s.notes}` : s.taskName || "Other repairs") : s.taskName || s.notes);
-    row.append(el("div", "veh", andList(names)), el("div", "meta", [shortDate(s0.date), mi(s0.odometer), s0.shop].filter(Boolean).join(" · ")));
+    const meter = (s) => s.odometer != null ? mi(s.odometer) : s.hours != null ? `${numText(s.hours)} hr` : "";
+    row.append(el("div", "veh", andList(names)));
+    const right = el("div", "rt"); if (g.length === 1) { right.append(badge(s0)); if (s0.odometer == null && s0.hours == null) right.append(el("span", "badge mut", "No reading")); } row.append(right);
+    row.append(el("div", "meta", [v.name, dayText(s0.date, now), g.length === 1 ? meter(s0) : "", s0.shop].filter(Boolean).join(" · ")));
+    // Edit sits beside Delete (#14). A visit of several logs gets one Edit per log and keeps one Delete for the whole visit.
+    const editBtn = (s, name) => { const b = btn("edt", "Edit", (ev) => openLogEdit(s.id, { opener: ev.currentTarget })); b.dataset.logId = s.id; b.setAttribute("aria-label", `Edit log, ${name}, ${v.name}, ${dayText(s.date, now)}`); return b; };
     const acts = el("div", "acts");
-    acts.append(armedButton("Delete", "Tap again to delete", () => deleteRecords(v, { logs: g.map((s) => s.id) })));
+    if (g.length > 1) for (let k = 0; k < g.length; k++) {
+      const line = el("div", "vline"), nm = el("span", null, names[k]); line.append(nm, badge(g[k]));
+      if (g[k].odometer == null && g[k].hours == null) line.append(el("span", "badge mut", "No reading")); else line.append(el("span", "num", meter(g[k])));
+      line.append(editBtn(g[k], names[k])); row.append(line);
+    } else acts.append(editBtn(g[0], names[0]));
+    acts.append(armedButton(g.length > 1 ? "Delete visit" : "Delete", "Tap again to delete", () => { setMsg($("svcMsg"), ""); return deleteRecords(v, { logs: g.map((s) => s.id) }); },
+      { name: `${andList(names)}, ${v.name}, ${dayText(s0.date, now)}`, said: g.length > 1 ? "Visit deleted." : "Service log deleted.", heading: "svcH" }));
     row.append(acts);
     box.append(row);
-  }
-}
-
-// Maintenance: section for the chosen vehicle, banner, and the pop-up listing what's due
-const isEditing = (box) => box.contains(document.activeElement) && document.activeElement.tagName === "INPUT";
-function dueText(r) {
-  if (r.left < 0) return { text: `Due at ${mi(r.due)} · overdue by ${mi(-r.left)}`, cls: "over" };
-  if (r.left === 0) return { text: `Due now (${mi(r.due)})`, cls: "over" };
-  return { text: `Due at ${mi(r.due)} · ${mi(r.left)} to go`, cls: r.soon ? "soon" : "" };
-}
-function maintRow(st, r, { showLast }) {
-  const row = el("div", "mrow" + (showLast && r.soon ? " soonrow" : ""));
-  row.append(el("div", "mname", r.name));
-  const d = dueText(r);
-  row.append(el("div", "mmeta " + d.cls, d.text));
-  if (showLast) {
-    row.append(el("div", "mmeta", r.logged ? `Last done ${mi(r.logged.odometer)} on ${shortDate(r.logged.date)}`
-      : r.assumedLast != null ? `Last done ~${mi(r.assumedLast)} (assumed)` : "Not logged yet"));
-  }
-  const acts = el("div", "acts");
-  acts.append(btn("mbtn", "Mark done", () => openDoneForm(acts, st, r)));
-  if (showLast && r.logged) acts.append(armedButton("Undo last log", "Tap again to undo", () => deleteRecords(thingById(st.thingId), { logs: [r.logged.id] })));
-  row.append(acts);
-  return row;
-}
-function openDoneForm(acts, st, r) {
-  const form = el("form", "doneform");
-  const lab = el("label", null, "Done at");
-  const inp = el("input");
-  Object.assign(inp, { type: "number", inputMode: "numeric", min: "0", step: "1", required: true, value: String(st.odo) });
-  inp.setAttribute("aria-label", `${r.name} done at odometer`);
-  lab.append(inp, document.createTextNode("mi"));
-  const go = el("button", "go", "Save"); go.type = "submit";
-  const msg = el("span");
-  form.append(lab, go, btn("mbtn quiet", "Cancel", () => form.replaceWith(acts)), msg);
-  form.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    const odo = intIn(inp.value);
-    if (odo == null || Number.isNaN(odo)) { msg.textContent = "Enter the odometer."; return; }
-    const res = makeLog({ thingId: st.thingId, date: today(), odometer: odo, shop: "", taskId: r.id, taskName: r.name, notes: "" });
-    if (res.error) { msg.textContent = cap(res.error) + "."; return; }
-    go.disabled = true; inp.blur();
-    try { await commit({ put: { logs: [res.rec] } }); } catch (e) { msg.textContent = saveErrorText(e); go.disabled = false; }
   });
-  acts.replaceWith(form);
-  inp.focus(); inp.select();
+  if (shown < groups.length) box.append(moreBox(shown, groups.length, "visits", () => {
+    const before = shown; lg.svc = shown + Math.min(LOG_STEP, groups.length - shown); renderServices();
+    liveSay(`Showing ${Math.min(lg.svc, groups.length)} of ${groups.length} visits.`);
+    ($("svcList").querySelectorAll(".item")[before] || $("svcList").querySelector(".more .btn2"))?.focus();
+  }));
 }
-function maintCarCard(st, rows, { showLast }) {
-  const card = el("div", "mcar"), head = el("div", "mcar-head");
-  head.append(el("strong", null, st.name), el("span", null, `${mi(st.odo)} as of ${shortDate(st.asOf)}`));
-  card.append(head);
-  for (const r of rows) card.append(maintRow(st, r, { showLast }));
-  return card;
-}
-function renderMaintSection() {
-  const v = thingById(histSel.value), sec = $("maintSec"), box = $("maintBox");
-  sec.hidden = !v;
-  if (!v) return;
-  $("maintTitle").textContent = `${v.name} maintenance`;
-  if (isEditing(box)) return;
-  box.replaceChildren();
-  const st = maintStatus(v.id);
-  if (!st) {
-    const wrap = el("div", "list"), e = el("div", "empty");
-    if (!v.tasks.length) e.append("This vehicle has no tasks. ", btn("mbtn", "Add tasks", () => openJarThing(v.id)));
-    else e.textContent = "Log a fill-up, or add an odometer reading in Settings, under Assets, to see what's due.";
-    wrap.append(e); box.append(wrap); return;
-  }
-  box.append(maintCarCard(st, st.rows, { showLast: true }));
-}
-function renderMaintBanner() {
-  const due = dueSoonAll(), b = $("mBanner");
-  b.hidden = !due.length || !vehicleThings().length;
-  if (due.length) $("mBannerSub").textContent = due.map((d) => `${d.name}: ${d.soon.map((r) => r.name.toLowerCase()).join(", ")}`).join(" · ");
-}
-function renderMaintDialog() {
-  const body = $("mDlgBody");
-  if (isEditing(body)) return;
-  body.replaceChildren();
-  const due = dueSoonAll();
-  if (!due.length) { body.append(el("div", "mempty", "All caught up. Nothing is due soon.")); return; }
-  for (const d of due) body.append(maintCarCard(d, d.soon, { showLast: false }));
-}
-function openMaint() { renderMaintDialog(); const d = $("mDialog"); if (!d.open) d.showModal(); }
-const closeMaint = () => { if ($("mDialog").open) $("mDialog").close(); };
-$("mBanner").addEventListener("click", openMaint);
-$("mClose").addEventListener("click", closeMaint);
-$("mOk").addEventListener("click", closeMaint);
-$("mDialog").addEventListener("click", (ev) => { if (ev.target === ev.currentTarget) closeMaint(); });
-// Pops up by itself once a day while something is due; the banner stays up meanwhile.
-let autoChecked = false;
-function maybeAutoOpen() {
-  if (autoChecked || curScreen !== "log" || !vehicleThings().length) return;
-  autoChecked = true;
-  if (!dueSoonAll().length || pref.get("maintPopupDay") === today()) return;
-  pref.set("maintPopupDay", today());
-  openMaint();
-}
-function refreshMaint() {
-  renderMaintBanner(); renderMaintSection();
-  if ($("mDialog").open) renderMaintDialog();
+function renderJarCard() { // the last card: the Vehicles jar page, with its attention line and red dot
+  const n = JarPage.boxesFor(Due.pantryTasks({ things: S.things, logs: S.logs, readings: S.readings, fillups: S.fillups, hiddenJars: S.hiddenJars }, today()), "vehicles").attn, mt = $("logJarMt");
+  mt.replaceChildren(); if (n) { const d = el("i", "rd"); d.setAttribute("aria-hidden", "true"); mt.append(d); }
+  mt.append(JarPage.attnText(n));
 }
 
 // Nudges: back up now and then; on iPhone, use it from the Home Screen
@@ -662,10 +524,10 @@ function renderNudges() {
 }
 $("nudgeLater").addEventListener("click", () => {
   const d = new Date(); d.setDate(d.getDate() + 7);
-  pref.set("nudgeSnooze", isoDate(d)); renderNudges();
+  pref.set("nudgeSnooze", isoDate(d)); renderNudges(); $("logTitle").focus(); liveSay("Backup reminder snoozed for 7 days.");
 });
 $("nudgeExport").addEventListener("click", () => doExport($("status")));
-$("iosNudgeLater").addEventListener("click", () => { pref.set("iosNudgeHidden", "1"); renderNudges(); });
+$("iosNudgeLater").addEventListener("click", () => { pref.set("iosNudgeHidden", "1"); renderNudges(); $("logTitle").focus(); liveSay("Reminder hidden."); });
 
 // ---------- Shops (the Vehicles list is the only one the screens use so far; the card is in jar-screen.js) ----------
 const shopChange = (list) => ({ settings: { shops: { ...S.shops, vehicles: list } } });
@@ -1072,9 +934,6 @@ async function boot() {
   }
   // Another tab is upgrading the database: let go of it so the upgrade can finish, and ask for a reload.
   watchVersion();
-  showInactive.checked = pref.get("showInactive") === "1";
-  const saved = thingById(pref.get("vehicle"));
-  if (saved && !saved.active) showInactive.checked = true;
   const platform = isIOS ? "install-ios" : isAndroid ? "install-android" : /Mac/.test(navigator.platform) ? "install-mac" : /Win/.test(navigator.platform) ? "install-windows" : null;
   if (platform && !isStandalone()) $(platform).open = true;
   renderHelp($("helpBody"));

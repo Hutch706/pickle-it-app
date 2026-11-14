@@ -201,8 +201,9 @@ const numText = (x) => x.toLocaleString("en-US", { maximumFractionDigits: 1 });
 // The reading checks (B9.3) as a result for the sheets: { error } when higher than a later reading, { lower: { typed, date } } when lower and not yet confirmed,
 // else { oldValue } (the old meter's last typed value, once confirmed) or {} for a normal reading. c = Due.checkReading's answer.
 function readingVerdict(c, o) {
-  if (c.status === "lower") return o.confirmLower ? { oldValue: c.last.typed } : { lower: c.last };
-  if (c.status === "higher") return { error: `That's higher than a later reading (${numText(c.later.typed)} on ${dayText(c.later.date, o.today)}). Check the number or the date.` };
+  if (c.status === "lower") return o.confirmLower ? { oldValue: c.last.typed } : { lower: { typed: c.last.typed, date: c.last.date } };
+  // later (id, store, kind, typed, date) lets the sheet draw the "See that ..." link (#13); no id (the starting value) means no link.
+  if (c.status === "higher") return { error: `That's higher than a later reading (${numText(c.later.typed)} on ${dayText(c.later.date, o.today)}). Check the number or the date.`, later: c.later };
   return {};
 }
 // Builds the one log a Done or Skip writes: { rec } or { error } (a full sentence). o = { status, date, reading, id, today, now, data, confirmLower, changeId }.
@@ -262,6 +263,66 @@ function formReadingPlan(thing, recs, o) {
   if (v.oldValue == null) return { put: recs, change: false };
   const ch = makeReading({ id: o.changeId, thingId: thing.id, date: o.date, odometer: o.odometer, oldValue: v.oldValue, createdAt: o.now }, thing.jar);
   return ch.error ? { error: `Can't save: ${ch.error}.` } : { put: { ...recs, readings: [ch.rec] }, change: true };
+}
+
+// ---------- Edit a maintenance log (#14; docs/specs/v0.1.1-log-edit-and-error-link.md) ----------
+// The reading a log edit asks for, for the chosen task and status: { field: "odometer" | "hours" | null, required }. A reading the log never had stays optional (AC 8).
+function logEditSpec(thing, old, taskId, status) {
+  const task = thing.tasks.find((k) => k.id === taskId), rule = !!(task && (task.miles || task.hours)), hadHours = old.hours != null && old.odometer == null;
+  const field = task && task.hours ? "hours" : task && task.miles ? "odometer" : hadHours ? "hours" : thing.jar === "vehicles" ? "odometer" : Due.hasHourMeter(thing) ? "hours" : null;
+  const had = old.odometer != null || old.hours != null;
+  return { field, required: !!field && had && (rule || (thing.jar === "vehicles" && status === "done")) };
+}
+// The meter-change rows saved with this log (derived: ReadingsList.companionsOf). sole: the log is the row's only companion, so the edit may change or delete it.
+const logChangeRows = (old, data) => {
+  const own = { logs: data.logs, fillups: data.fillups };
+  return data.readings.filter((c) => c.thingId === old.thingId && c.oldValue != null).map((c) => ({ c, all: ReadingsList.companionsOf(c, own) })).filter((x) => x.all.some((y) => y.rec.id === old.id)).map((x) => ({ c: x.c, sole: x.all.length === 1 }));
+};
+// One Save of the edit page. f = { taskId, taskName (when "other"), status, date, reading, shop, notes }; o = { today, now, data: { logs, readings, fillups } of this thing, confirmLower, changeId }.
+// Returns { error, field } | { none: true } (nothing changed) | { lower: { typed, date } } (ask "Did you type that right?") | { put, del?, undo, toast, hint }.
+// id, createdAt and visit stay as they were (the link to the change row derives from createdAt; the visit groups the logs). forDue is cleared when the task changes.
+function logEditPlan(thing, old, f, o) {
+  const err = (error, field) => ({ error, field });
+  const task = thing.tasks.find((k) => k.id === f.taskId), taskId = f.taskId, changedTask = taskId !== old.taskId;
+  if (taskId !== "other" && !task && changedTask) return err("That task is no longer there. Pick another.", "task");
+  if (!validISODate(f.date)) return err("Pick a real date.", "date");
+  if (f.date > o.today) return err("Pick today or an earlier date.", "date");
+  const spec = logEditSpec(thing, old, taskId, f.status), field = spec.field, reading = field ? opt(f.reading) : null;
+  if (reading == null && spec.required) return err(field === "hours" ? "Enter the hours." : "Enter the odometer.", "reading");
+  const built = makeLog({ id: old.id, thingId: old.thingId, taskId, taskName: taskId === "other" ? f.taskName : changedTask ? task.name : old.taskName, date: f.date, status: f.status,
+    forDue: changedTask ? "" : old.forDue, shop: f.shop, notes: f.notes, visit: old.visit, createdAt: old.createdAt, updatedAt: o.now,
+    odometer: field === "odometer" ? reading : null, hours: field === "hours" ? reading : null }, thing.jar, true);
+  if (built.error) return err(`Can't save: ${built.error}.`, /date/.test(built.error) ? "date" : /odometer|hours/.test(built.error) ? "reading" : "task");
+  const rec = built.rec, n = (x) => x ?? null;
+  if (["taskId", "taskName", "date", "odometer", "hours", "shop", "notes", "status", "forDue"].every((k) => n(rec[k]) === n(old[k]))) return { none: true };
+  const data = o.data, meter = field === "hours" ? "hours" : "miles", day = String(thing.createdAt || "").slice(0, 10) || o.today;
+  const linked = logChangeRows(old, data), sole = (linked.find((x) => x.sole) || {}).c || null;
+  const moved = rec.date !== old.date || n(rec.odometer) !== n(old.odometer) || n(rec.hours) !== n(old.hours);
+  const manage = rec.status === "done" && (!!sole || !linked.length); // only a Done may change, create or delete a change row
+  let v = {};
+  if (moved && reading != null) { // the same checks as Add Reading, with this log and its own change row left out of the neighbours, at the log's own createdAt (AC 15, 42)
+    const rest = { logs: data.logs.filter((l) => l.id !== old.id), fillups: data.fillups, readings: data.readings.filter((c) => !(manage && sole && c.id === sole.id)) };
+    v = readingVerdict(Due.checkReading(rest, thing, meter, rec.date, reading, old.createdAt, day), { today: o.today, confirmLower: o.confirmLower });
+    if (v.error) return err(v.error, "reading");
+    if (v.lower) return { lower: v.lower };
+  }
+  let chg = null, drop = null;
+  if (manage && v.oldValue != null) {
+    const m = makeReading({ id: sole ? sole.id : o.changeId, thingId: old.thingId, date: rec.date, [field]: reading, oldValue: v.oldValue, createdAt: sole ? sole.createdAt : old.createdAt, updatedAt: o.now }, thing.jar);
+    if (m.error) return err(`Can't save: ${m.error}.`, "reading");
+    chg = m.rec;
+  } else if (manage && sole && moved) drop = sole; // the number is normal now (or gone): the change row is no longer needed
+  if (chg || drop) { // AC 43: older readings must not newly go out of order once the change row is gone, moved or added
+    const after = { logs: data.logs.map((l) => (l.id === old.id ? rec : l)), fillups: data.fillups, readings: [...data.readings.filter((c) => c.id !== (chg || drop).id), ...(chg ? [chg] : [])] };
+    if (Due.newlyOutOfOrder(data, after, thing, meter, day)) return err("That change would leave other readings out of order. Check the date or the number.", rec.date !== old.date ? "date" : "reading");
+  }
+  const undo = { put: { logs: [structuredClone(old)] } };
+  if (sole && (chg || drop)) undo.put.readings = [structuredClone(sole)]; else if (chg) undo.del = { readings: [chg.id] };
+  const plan = { put: { logs: [rec], ...(chg ? { readings: [chg] } : {}) }, undo, toast: drop ? "Log updated. Meter change removed." : "Log updated.",
+    // The log edit left a meter change alone that may need fixing (AC 24).
+    hint: (v.oldValue != null && !chg) || (old.status === "done" && rec.status === "skipped" && linked.length > 0) };
+  if (drop) plan.del = { readings: [drop.id] };
+  return plan;
 }
 
 // Ids of the thing's meter-change readings rows to delete along with the fill-ups/logs in deleted ({ fillups: [ids], logs: [ids] }).
@@ -384,8 +445,12 @@ const finishWipe = (store, dataIsEmpty) => {
   if (dataIsEmpty) { wipePrefs(store); return "finished"; }
   store.removeItem(WIPE_KEY); return "abandoned";
 };
-// A hidden jar's address opens the Pantry instead (QA S1 ruling); "log" is the fill-up screen, not a jar, so it stays reachable.
-const routeAround = (screen, hidden) => (JAR_NAMES.includes(screen) && hidden.includes(screen) ? "pantry" : screen);
+// A hidden jar's address opens the Pantry instead (QA S1 ruling). "vehicles-jar" is the Vehicles jar page. "vehicles" and "log" are the Fill-Ups and History page, which stays
+// reachable with the jar hidden (owner, 2026-11-14, QA M-4: Enter Fill-Up must keep working).
+const routeAround = (screen, hidden) => {
+  const jar = screen === "vehicles-jar" ? "vehicles" : screen;
+  return screen !== "vehicles" && JAR_NAMES.includes(jar) && hidden.includes(jar) ? "pantry" : screen;
+};
 // Closes this tab's connection and deletes the whole database by its exact name. Resolves only on success; onBlocked runs while another tab holds it open.
 function deleteDB(onBlocked) {
   return new Promise((res, rej) => {
@@ -441,31 +506,54 @@ function twoMonthsBefore(iso) {
 function ratio(trips) { const m = trips.reduce((s, t) => s + t.miles, 0), g = trips.reduce((s, t) => s + t.units, 0); return g > 0 ? m / g : null; }
 function median(xs) { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b), h = s.length >> 1; return s.length % 2 ? s[h] : (s[h - 1] + s[h]) / 2; }
 
+// One row per fill-up (a record with a numeric odometer and gallons > 0), in odometer order: Map id -> { r, trip, mpg, kept, missed, gap, deviation, flagged }.
+// trip = miles since the vehicle's previous fill-up in the current meter's terms (null for the first, or when the difference is 0 or less); mpg = trip / gallons;
+// kept = the stretch counts toward lifetime MPG; deviation = (mpg - average of the kept trips before this row) / that average (null for none, or a missed row). Nothing is stored.
 // changes = the thing's readings rows: a miles meter change shifts the fill-ups before it into the current meter's terms for the trip math (B9.8).
-function vehicleStats(recs, changes = []) {
+function fillupRows(recs, changes = []) {
   const odo = (r) => r.odometer + (changes.length ? Due.shiftOf(r, changes, "miles") : 0);
   // Only records with gallons are fill-ups: a trip runs from the previous one of those. An odometer-only record is a reading and is left out.
   const sorted = recs.filter((r) => Number.isFinite(+r.odometer) && +r.units > 0)
     .sort((a, b) => odo(a) - odo(b) || cmp(String(a.date), String(b.date)) || cmp(String(a.createdAt), String(b.createdAt)));
-  const cands = [];
-  for (let i = 1; i < sorted.length; i++) {
-    const r = sorted[i];
-    const miles = odo(r) - odo(sorted[i - 1]);
-    if (miles > 0) cands.push({ r, miles, mpg: miles / r.units });
-  }
+  const rows = new Map(), cands = [];
+  sorted.forEach((r, i) => {
+    const miles = i ? odo(r) - odo(sorted[i - 1]) : 0, has = miles > 0;
+    const row = { r, trip: has ? miles : null, mpg: has ? miles / r.units : null, kept: false, missed: has && r.missed === true, gap: false, deviation: null, flagged: false };
+    rows.set(r.id, row);
+    if (has) cands.push(row);
+  });
   const usual = cands.length >= GAP_MIN_TRIPS ? median(cands.filter((c) => !c.r.missed).map((c) => c.mpg)) : null;
-  const trips = [];
-  let gaps = 0;
+  const keptSoFar = [];
   for (const c of cands) {
-    if (c.r.missed || (usual && c.mpg > usual * GAP_RATIO)) { gaps++; continue; }
-    trips.push({ id: c.r.id, date: c.r.date, odometer: c.r.odometer, miles: c.miles, units: +c.r.units, mpg: c.mpg });
+    c.gap = !c.r.missed && !!usual && c.mpg > usual * GAP_RATIO;
+    c.kept = !c.r.missed && !c.gap;
+    const avg = c.missed ? null : ratio(keptSoFar);
+    if (avg) { c.deviation = (c.mpg - avg) / avg; c.flagged = Math.abs(c.deviation) >= WARN_PCT; }
+    if (c.kept) keptSoFar.push({ miles: c.trip, units: +c.r.units });
   }
+  return rows;
+}
+function vehicleStats(recs, changes = []) {
+  const rows = [...fillupRows(recs, changes).values()];
+  const trips = rows.filter((x) => x.kept).map((x) => ({ id: x.r.id, date: x.r.date, odometer: x.r.odometer, miles: x.trip, units: +x.r.units, mpg: x.mpg }));
+  const gaps = rows.filter((x) => x.trip != null && !x.kept).length;
   for (const t of trips) { const from = twoMonthsBefore(t.date); t.running = ratio(trips.filter((u) => u.date >= from && u.date <= t.date)); }
   const latest = trips[trips.length - 1] || null;
   const priorAvg = ratio(trips.slice(0, -1));
   const deviation = latest && priorAvg ? (latest.mpg - priorAvg) / priorAvg : null;
-  return { fillups: sorted.length, gaps, trips, lifetime: ratio(trips), twoMonth: latest ? latest.running : null, latest, priorAvg,
+  return { fillups: rows.length, gaps, trips, lifetime: ratio(trips), twoMonth: latest ? latest.running : null, latest, priorAvg,
     deviation, flagged: deviation != null && Math.abs(deviation) >= WARN_PCT };
+}
+
+// The Vehicles page's Recent Fill-Ups: every vehicle's fill-ups (inactive ones too), newest first: date, then when it was entered, then id (a stable order on every device).
+// Each entry is { v, r, row }, with row from fillupRows for that vehicle alone, so Trip is against the same vehicle's previous fill-up.
+function recentFillups(vehicles, fillups, readings) {
+  const out = [];
+  for (const v of vehicles) {
+    const rows = fillupRows(fillups.filter((f) => f.thingId === v.id), readings.filter((r) => r.thingId === v.id));
+    for (const [, row] of rows) out.push({ v, r: row.r, row });
+  }
+  return out.sort((a, b) => cmp(b.r.date, a.r.date) || cmp(String(b.r.createdAt || ""), String(a.r.createdAt || "")) || cmp(b.r.id, a.r.id));
 }
 
 // ---------- Maintenance math ----------
@@ -850,7 +938,7 @@ function analyzeImport(text) {
       if (!visitKeys.has(vk)) visitKeys.set(vk, "~" + visitKeys.size);
       const taskId = idc(r, "task_id");
       const res = makeLog({ id: idc(r, "entry_id"), thingId: "", date: d.v, odometer: o.v, hours: h.v, shop, taskId: taskId || "?", taskName: text1(r, "task"),
-        notes: unFormula(cell(r, "notes")), visit: idc(r, "visit") || visitKeys.get(vk), status, forDue: due.v || "", createdAt: created }, rowJar);
+        notes: unFormula(cell(r, "notes")), visit: idc(r, "visit") || visitKeys.get(vk), status, forDue: due.v || "", createdAt: created }, rowJar, true); // meterOptional: the app saves a Done vehicle log with no reading (Pantry Done sheet, log Edit), so a backup must restore it (QA M-1)
       if (res.error) return bad(r, `Log: ${res.error}.`);
       out.logs.push({ ...base, rec: res.rec, rawTaskId: taskId });
     }

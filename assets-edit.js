@@ -67,9 +67,10 @@ function renderAssetsDetail() {
   }
   box.append(sec);
   const readings = renderReadings(th); if (readings) box.append(readings); // after Tasks (R1, assets-readings.js)
+  if (held && held.rowKey !== undefined && held.thingId === th.id) box.prepend(heldBanner()); // "Back to <form>" at the top while a refused form is held (#13, log-edit.js)
   if (th.jar === "vehicles") { // fill-ups, MPG, history and shops live on the Vehicles jar page (4.21 AC 8)
-    const go = btn("btn2 small", "Open the Vehicles Jar", () => { location.hash = "#vehicles"; });
-    box.append(el("p", "hint", "Fill-ups and shops are on the Vehicles Jar page."), go);
+    const go = btn("btn2 small", "Open the Vehicles Jar", () => { location.hash = "#vehicles-jar"; });
+    box.append(el("p", "hint", "Fill-ups and shops are on the Vehicles tab, under Fill-Ups and History."), go);
   }
   const del = btn("danger-link", "Delete Thing", () => asDeleteThing(th.id)); del.dataset.act = "delete";
   box.append(del);

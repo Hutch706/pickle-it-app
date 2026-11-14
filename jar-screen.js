@@ -5,9 +5,9 @@
    (settings.shops, saved as you go through shopChange in app.js); the shown row counts and the Shops card state are in memory and start fresh each time the page opens.
    Loaded after setup-screen.js and before app.js, which calls resetJarPage() and renderJar() and defines $, el, btn, commit, shopChange. */
 
-const jp = { jar: null, limits: {}, thingsLimit: JarPage.FIRST, shops: null };
 // Shops card state (AC 8): open/edit, the add row's text and error, per-row errors, the "Removed ..." line, a write failure, and the save in flight.
 const freshShops = () => ({ open: false, edit: false, newVal: "", err: "", rowErr: {}, status: "", fail: "", inflight: null, typed: null }); // typed: { i, v } a rename that failed to write, so its field keeps the text
+const jp = { jar: null, limits: {}, thingsLimit: JarPage.FIRST, shops: freshShops() };
 function resetJarPage(jar) { Object.assign(jp, { jar, limits: {}, thingsLimit: JarPage.FIRST, shops: freshShops() }); } // every arrival starts fresh (4.21 AC 8a)
 
 // A thing's page in Settings > Assets (4.21 AC 5); Back from there returns to the Assets list.
@@ -71,8 +71,7 @@ function renderJar() {
     $("jarBoxes").append(boxes);
   });
   renderJarThings(Assets.buildModel(data, now));
-  $("jarVeh").hidden = jar !== "vehicles";
-  if (jar === "vehicles") renderShops();
+  $("jarBack").hidden = jar !== "vehicles"; // Vehicles: this page is opened from Fill-Ups and History, and Back returns there
   $("jarAdd").replaceChildren(ico("plus"), JarPage.ADD_LABEL[jar]);
 }
 
@@ -86,12 +85,9 @@ function renderShops(o = {}) {
   if (!o.force && u.edit && box.contains(at) && at.matches("input")) return; // someone is typing: a redraw from another tab must not take it away
   const keep = o.focus || (box.contains(at) ? at.dataset.fk : null), list = shopsList(), n = list.length;
   const head = el("div", "shh"), h2 = el("h2", "shT"); h2.id = "jarShopsT";
-  const tg = btn("tg", "", () => { // opening or closing is not saved; closing while editing ends edit mode (nothing is lost: every change was already saved)
-    u.open = !u.open; if (!u.open) Object.assign(u, { edit: false, err: "", rowErr: {}, status: "", fail: "", typed: null }); // a name typed in the Add row stays there (QA R2 finding 8a)
-    renderShops({ force: true, focus: "tg" });
-  });
-  tg.dataset.fk = "tg"; tg.setAttribute("aria-expanded", String(u.open)); tg.setAttribute("aria-controls", "jarShopsBody"); tg.setAttribute("aria-label", `Shops, ${n} ${n === 1 ? "shop" : "shops"}`);
-  tg.append(el("span", null, "Shops"), el("span", "cnt", String(n)), ico("chevd", "ic chev")); h2.append(tg); head.append(h2);
+  const cnt = el("span", "cnt", String(n)); cnt.setAttribute("aria-label", `${n} ${n === 1 ? "shop" : "shops"}`);
+  const tg = el("span", "tg"); tg.append(el("span", null, "Shops"), cnt); h2.append(tg); head.append(h2);
+  box.hidden = !u.open; $("logShopsBtn").setAttribute("aria-expanded", String(u.open));
   if (u.open) {
     const ed = btn("btn2 small ed" + (u.edit ? " pri2" : ""), u.edit ? "Save" : "Edit", u.edit ? saveShops : startShopEdit);
     ed.dataset.fk = "ed"; ed.setAttribute("aria-label", u.edit ? "Save Shops" : "Edit Shops"); head.append(ed);
@@ -133,6 +129,11 @@ function shopErr(into, inp, msg, id) {
 function clearShopErr(inp) {
   inp.classList.remove("inerr"); inp.removeAttribute("aria-invalid"); inp.removeAttribute("aria-describedby");
   const e = inp.parentNode.querySelector(".ferr"); if (e) e.remove();
+}
+function toggleShops() { // opening or closing is not saved; closing while editing ends edit mode (nothing is lost: every change was already saved)
+  const u = jp.shops; u.open = !u.open;
+  if (!u.open) Object.assign(u, { edit: false, err: "", rowErr: {}, status: "", fail: "", typed: null }); // a name typed in the Add row stays there (QA R2 finding 8a)
+  renderShops({ force: true });
 }
 function startShopEdit() {
   const u = jp.shops, list = shopsList();
@@ -178,5 +179,6 @@ async function saveShops() { // writes nothing itself: only leaves edit mode (a 
 }
 
 document.addEventListener("DOMContentLoaded", function jarEvents() {
+  $("logShopsBtn").addEventListener("click", toggleShops);
   $("jarAdd").addEventListener("click", (ev) => openSetup({ jar: jp.jar, opener: ev.currentTarget })); // setup returns focus to this button
 });

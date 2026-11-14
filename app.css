@@ -332,8 +332,8 @@ input[aria-invalid="true"] { border-color: var(--err); }
 .item { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 14px; border-top: 1px solid var(--line); }
 .item:first-child { border-top: 0; }
 .item > * { min-width: 0; }
-.item .veh { font-weight: 600; }
-.item .meta { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; grid-column: 1 / -1; }
+.item .veh { font-weight: 600; overflow-wrap: anywhere; }
+.item .meta { overflow-wrap: anywhere; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; grid-column: 1 / -1; }
 .item .acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 16px; }
 .lifetime { grid-column: 2; grid-row: 1; align-self: center; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
 .lifetime.flag { color: var(--wait); }
@@ -852,3 +852,69 @@ dialog.setup:has(.su-toast:not([hidden])) .su-in { padding-bottom: calc(env(safe
   .dsteps li.on { background: Highlight; }
   :root :focus-visible, .tabs .tab[aria-selected="true"]:focus-visible, .tabs .tab[aria-checked="true"]:focus-visible { outline: 3px solid Highlight; outline-offset: 2px; }
 }
+
+/* ---------- Edit a log (#14) and the refusal link (#13): docs/design/log-edit.html ---------- */
+.edt { min-height: 44px; min-width: 64px; padding: 0 14px; background: none; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+.edt:focus-visible, .lnk:focus-visible, .banner:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.item .acts .edt { margin-right: 4px; }
+.item .vline { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; border-top: 1px dashed var(--line); padding-top: 4px; }
+.item .vline > span { min-width: 0; overflow-wrap: anywhere; font-size: 15px; }
+#svcMsg.warn { background: var(--wait-bg); border-radius: 10px; padding: 10px 14px; font-weight: 600; margin-bottom: 8px; }
+.lnk { display: flex; align-items: center; min-height: 44px; margin-top: 4px; padding: 0; background: none; border: 0; color: var(--accent); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; text-align: left; }
+.heldback { display: grid; gap: 8px; }
+#heldBack:not([hidden]), .heldback { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 4px; } /* stays reachable while the page scrolls to the marked row (QA M-10) */
+.blocked { scroll-margin-top: 72px; }
+.rr-del, .fu .del { scroll-margin-bottom: 96px; } /* a focused marked row clears the bottom jar bar (R-3) */
+.banner { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; color: var(--accent); font: inherit; font-weight: 700; cursor: pointer; text-align: left; width: 100%; }
+.banner .ic { width: 20px; height: 20px; flex: none; }
+.blocked { background: var(--wait-bg); }
+.blockedmsg { margin: 0; grid-column: 1 / -1; color: var(--wait); font-size: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.blockedmsg .ic { width: 16px; height: 16px; }
+.su-in .lestatus { border: 0; padding: 0; margin: 0; min-width: 0; }
+.su-in .lestatus .lab { font-weight: 600; font-size: 15px; padding: 0; margin-bottom: 6px; }
+.su-in .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.su-in .seg label { position: relative; display: block; }
+.su-in .seg input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.su-in .seg span { color: var(--ink); min-height: 44px; border: 1px solid var(--line-strong); border-radius: 999px; display: flex; align-items: center; justify-content: center; font-weight: 600; background: var(--surface); }
+.su-in .seg input:checked + span { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.su-in .seg input:focus-visible + span { outline: 3px solid var(--ink); outline-offset: 2px; }
+.su-in input[aria-invalid="true"], .su-in select[aria-invalid="true"] { border: 2px solid var(--err); }
+.su-in textarea { min-height: 96px; }
+.su-in .status.err::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M12 4l9 16H3z'/%3E%3Cpath d='M12 10v4M12 17.5v.01'/%3E%3C/svg%3E") center/contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2'%3E%3Cpath d='M12 4l9 16H3z'/%3E%3Cpath d='M12 10v4M12 17.5v.01'/%3E%3C/svg%3E") center/contain no-repeat; }
+.su-in .back { display: inline-flex; align-items: center; gap: 4px; color: var(--accent); }
+.su-in .fld > label { font-size: 15px; font-weight: 600; color: var(--ink); }
+
+/* ---------- The Vehicles page: Fill-Ups and History (v0.1.1 #9; docs/design/vehicles-fillups-page.html) ---------- */
+.two { display: flex; flex-wrap: wrap; gap: 10px; }
+.two > .btn2.add { flex: 1 1 150px; width: auto; }
+.btn2[aria-expanded="true"] { border: 2px solid var(--accent); }
+.shT .tg { cursor: default; } /* the Shops card's title is plain now: the Shops button above it opens and closes it */
+.mp { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 52px; padding: 8px 14px; border-top: 1px solid var(--line); }
+.mp:first-child { border-top: 0; }
+.mp .nm { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.mp .val { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); white-space: nowrap; text-align: right; }
+.mp .val b { font-size: 22px; font-weight: 600; color: var(--ink); }
+.mp .no { color: var(--muted); font-size: 15px; text-align: right; white-space: nowrap; }
+.badge.ok { color: var(--ok); background: var(--ok-bg); }
+.item .rt { grid-column: 2; grid-row: 1; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; align-self: start; }
+.item .vline .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 14px; color: var(--muted); }
+.fu { padding: 12px 14px; display: grid; gap: 6px; border-top: 1px solid var(--line); }
+.fu:first-child { border-top: 0; }
+.fu:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+.fvis { display: grid; gap: 6px; min-width: 0; }
+.fu .l1 { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.fu .l1 b { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.fu .dt { font-size: 14px; color: var(--muted); white-space: nowrap; }
+.fu .l2 { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fu .l2 i { font-style: normal; white-space: nowrap; }
+.fu .stats { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.fu .c { display: grid; min-width: 92px; }
+.fu .c .lb { font-size: 12px; font-weight: 600; color: var(--muted); }
+.fu .c .vl { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: 17px; font-weight: 600; white-space: nowrap; min-height: 24px; }
+.fu .c .vl.dash { color: var(--muted); font-weight: 400; }
+.fu .del { justify-self: start; }
+.list > .more { justify-items: start; }
+.rd { width: 10px; height: 10px; border-radius: 50%; background: var(--err); flex: none; }
+#logJarCard { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+#logJarMt { display: flex; align-items: center; gap: 6px; }
+ul.list { margin: 0; padding: 0; list-style: none; }

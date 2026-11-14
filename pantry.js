@@ -103,7 +103,7 @@ function liveSay(text) { // a quiet announcement for things the hidden toast can
   n.textContent = ""; setTimeout(() => { n.textContent = text; }, 50);
 }
 // Where focus goes when the toast closes: back to the row (Undo) or to where the row went (Dismiss, timeout). "menu" = the Menu button.
-const goBack = (k) => (k === "menu" ? $("menuBtn").focus() : String(k).startsWith("assets:") ? asFocusUpdate(k.slice(7)) : String(k).startsWith("rd:") ? rdFocus(k.slice(3)) : focusPantryRow(k)); // "assets:<meter>" = the Update button on a thing in Settings > Assets (S3); "rd:<row key>" = that Readings row's Delete button (R1)
+const goBack = (k) => (k === "menu" ? $("menuBtn").focus() : String(k).startsWith("assets:") ? asFocusUpdate(k.slice(7)) : String(k).startsWith("rd:") ? rdFocus(k.slice(3)) : String(k).startsWith("le:") ? leFocus(k.slice(3)) : focusPantryRow(k)); // "assets:<meter>" = the Update button on a thing in Settings > Assets (S3); "rd:<row key>" = that Readings row's Delete button (R1)
 function toastBox() {
   let box = document.getElementById("ptoast");
   if (box) return box;
@@ -115,9 +115,11 @@ function toastBox() {
     const set = undoSet; if (!set || undo.getAttribute("aria-disabled")) return;
     clearTimeout(toastTimer); // aria-disabled, not disabled: a disabled button would drop keyboard focus
     // A delete's Undo is a ready-made { put } of exact clones (R1); it writes nothing if the thing is gone, so no orphan record is made.
+    const why = set.guard && set.guard(); // an edit's Undo is refused when the log changed since (log-edit.js, AC 33)
+    if (why) { box.firstChild.textContent = why; box.dataset.sticky = "1"; return; }
     if (set.put && !ReadingsList.canUndo(set, S.things)) { box.firstChild.textContent = "Couldn't undo: this thing was removed."; box.dataset.sticky = "1"; return; }
     undo.setAttribute("aria-disabled", "true");
-    try { await commit(set.put ? { put: set.put } : { del: set }); } // a save's Undo deletes by id: touches nothing else; an id already gone is a quiet no-op
+    try { await commit(set.put ? { put: set.put, ...(set.del ? { del: set.del } : {}) } : { del: set }); } // a save's Undo deletes by id: touches nothing else; an id already gone is a quiet no-op
     catch (e) { box.firstChild.textContent = saveErrorText(e).replace(/^Couldn't save/, "Couldn't undo"); box.dataset.sticky = "1"; undo.removeAttribute("aria-disabled"); return; }
     if (undoSet === set) { hide(true); liveSay("Undone."); }
   });
@@ -230,15 +232,16 @@ function openDone(k, rowFk) {
 async function saveDone(ev, confirmed = false) {
   ev.preventDefault();
   if (dn.busy) return;
-  const date = $("dnDate"), rd = $("dnRead"), fail = (text, input) => {
+  const date = $("dnDate"), rd = $("dnRead"), fail = (text, input, later = null) => {
     setMsg($("dnStatus"), text, "err"); for (const i of [date, rd]) i.removeAttribute("aria-invalid"); describeErr([date, rd], input);
+    if (later) refusalLink($("dnStatus"), later, dn.spec.field === "hours" ? "hours" : "miles", doneDraft({ thingId: dn.thingId, taskId: dn.taskId, fk: dn.fk, name: $("dnTitle").textContent, date: date.value, read: rd.value })); // #13
     if (input) { input.setAttribute("aria-invalid", "true"); input.focus(); }
   };
   const cur = lookupTask(dn.thingId, dn.taskId); // recompute now: another tab may have changed this task since the sheet opened
   if (!cur) { fail(GONE); return; }
   const reading = $("dnReadWrap").hidden ? null : numIn(rd.value);
   const res = pantryLog(cur.thing, cur.task, cur.row, { status: "done", date: date.value, reading, id: dn.id, changeId: dn.changeId, today: today(), now: nowISO(), data: readingData(dn.thingId), confirmLower: confirmed });
-  if (res.error) { fail(res.error, /^(Pick|Can't save: the date)/.test(res.error) ? date : rd); return; }
+  if (res.error) { fail(res.error, /^(Pick|Can't save: the date)/.test(res.error) ? date : rd, res.later); return; }
   if (res.lower) { // lower than the last reading: ask; nothing is saved until Yes
     dn.busy = true; setBusy($("dnSave"), true);
     const yes = await askMeterChange(reading, res.lower, date.value);
@@ -289,8 +292,9 @@ function openReading({ thingId = "", meter = "miles", fk = "", menu = false }) {
 async function saveReading(confirmed = false) {
   if (ar.busy) return;
   const who = $("arWho"), date = $("arDate"), rd = $("arRead"), inputs = [who, date, rd];
-  const fail = (text, input) => {
+  const fail = (text, input, later = null) => {
     setMsg($("arStatus"), text, "err"); for (const i of inputs) i.removeAttribute("aria-invalid"); describeErr(inputs, input);
+    if (later) refusalLink($("arStatus"), later, ar.meter, readingDraft({ thingId: ar.thingId, meter: ar.meter, fk: ar.fk, menu: ar.menu, date: date.value, read: rd.value })); // #13
     if (input) { input.setAttribute("aria-invalid", "true"); input.focus(); }
   };
   const lock = (on) => { ar.busy = on; setBusy($("arSave"), on); date.readOnly = rd.readOnly = on; who.disabled = on && document.activeElement !== who; };
@@ -299,7 +303,7 @@ async function saveReading(confirmed = false) {
   if (!thing) { fail("This thing was removed. Nothing was saved."); return; }
   const value = numIn(rd.value);
   const res = readingPlan(thing, ar.meter, { date: date.value, value, id: ar.id, changeId: ar.changeId, today: today(), now: nowISO(), data: readingData(thing.id), confirmLower: confirmed });
-  if (res.error) { fail(res.error, /^(Pick|Can't save: the date)/.test(res.error) ? date : rd); return; }
+  if (res.error) { fail(res.error, /^(Pick|Can't save: the date)/.test(res.error) ? date : rd, res.later); return; }
   if (res.lower) {
     lock(true);
     const yes = await askMeterChange(value, res.lower, date.value);
@@ -433,7 +437,7 @@ function boxEl(id, title, defOpen, list, ctx, o = {}) {
     const more = el("div", "more"); more.append(el("p", null, `Showing ${limit} of ${list.length}`));
     const links = el("div", "jlinks"), rest = {};
     for (const k of list.slice(limit)) rest[k.jar] = (rest[k.jar] || 0) + 1;
-    for (const [j, name] of JARS) if (rest[j]) { const a = el("a", null, `${name} (${rest[j]})`); a.href = "#" + j; a.dataset.fk = "jl:" + id + ":" + j; links.append(a); }
+    for (const [j, name] of JARS) if (rest[j]) { const a = el("a", null, `${name} (${rest[j]})`); a.href = "#" + (j === "vehicles" ? "vehicles-jar" : j); a.dataset.fk = "jl:" + id + ":" + j; links.append(a); }
     more.append(links); d.append(more);
   }
   return d;
